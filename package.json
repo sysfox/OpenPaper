@@ -1,0 +1,17 @@
+{
+  "name": "openpaper",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r --if-present exec tsc --noEmit",
+    "dev:api": "pnpm --filter @openpaper/api start:dev",
+    "dev:web": "pnpm --filter @openpaper/web dev",
+    "import:seed": "pnpm --filter @openpaper/scripts import:seed",
+    "reindex": "pnpm --filter @openpaper/scripts reindex"
+  }
+}

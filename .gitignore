@@ -23,6 +23,7 @@ out/
 .nuxt/
 .next/
 .turbo/
+*.tsbuildinfo
 
 # Logs
 logs/

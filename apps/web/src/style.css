@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #f6f3ea;
+  color: #101e2c;
+  font-size: 17px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rod-track {
+  background: repeating-linear-gradient(
+    to right,
+    #101e2c 0 10px,
+    #f5a301 10px 22px
+  );
+}
+
+.big-btn {
+  min-height: 52px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.opt-btn {
+  min-height: 56px;
+  font-size: 17px;
+}
