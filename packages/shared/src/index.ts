@@ -1,4 +1,4 @@
-export type QuestionType = 'single' | 'multi' | 'judge';
+export type QuestionType = "single" | "multi" | "judge";
 
 export type GradeScore = 0 | 50 | 100;
 
@@ -34,8 +34,9 @@ export function grade(
 ): GradeResult {
   const expected = Array.from(new Set((answer ?? []).map(String)));
   const actual = Array.from(new Set((picked ?? []).map(String)));
-  if (type === 'single' || type === 'judge') {
-    const pass = actual.length === 1 && expected.length === 1 && actual[0] === expected[0];
+  if (type === "single" || type === "judge") {
+    const pass =
+      actual.length === 1 && expected.length === 1 && actual[0] === expected[0];
     return pass ? { score: 100, isFull: true } : { score: 0, isFull: false };
   }
   const expectedSet = new Set(expected);
