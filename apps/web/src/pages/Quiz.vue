@@ -51,7 +51,12 @@
           <p class="mt-2 text-base leading-relaxed">{{ result.analysis || "暂无解析，欢迎纠错补充。" }}</p>
         </details>
 
-        <button v-if="judged" @click="next" class="big-btn w-full bg-ink text-paper rounded-xl px-4 py-3">下一题</button>
+        <div v-if="judged" class="flex gap-2">
+          <button @click="toggleFav" :disabled="favBusy" class="big-btn flex-1 border-2 border-ink rounded-xl disabled:opacity-50">
+            {{ favBusy ? "收藏中…" : isFav ? "★ 已收藏" : "☆ 收藏" }}
+          </button>
+          <button @click="next" class="big-btn flex-1 bg-ink text-paper rounded-xl px-4 py-3">下一题</button>
+        </div>
       </article>
     </div>
   </section>
@@ -60,7 +65,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { api, isLoggedIn, type AttemptResult, type Question } from "../api";
+import { api, normalizeQuestion, isLoggedIn, type AttemptResult, type Question } from "../api";
 import { mockQuestions } from "../mock";
 
 const route = useRoute();
@@ -72,10 +77,15 @@ const index = ref(0);
 const picked = ref<number[]>([]);
 const judged = ref(false);
 const result = ref<AttemptResult | null>(null);
+const doneIds = ref<string[]>([]);
+const idsMode = ref(false);
+const favSet = ref<Set<string>>(new Set());
+const favBusy = ref(false);
 
 const current = computed(() => list.value[index.value]);
 const total = computed(() => list.value.length);
 const firstReadonly = computed(() => `/q/${list.value[0]?.no || 1}`);
+const isFav = computed(() => (current.value ? favSet.value.has(current.value.id) : false));
 
 function letter(i: number): string {
   return String.fromCharCode(65 + i);
@@ -115,6 +125,40 @@ function reset(): void {
   result.value = null;
 }
 
+function parseIds(raw: unknown): string[] {
+  if (typeof raw !== "string") return [];
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+async function refreshFavs(): Promise<void> {
+  try {
+    const favs = await api.getFavorites();
+    favSet.value = new Set(favs.map((f) => f.questionId));
+  } catch {
+    favSet.value = new Set();
+  }
+}
+
+async function toggleFav(): Promise<void> {
+  const q = current.value;
+  if (!q || favBusy.value) return;
+  favBusy.value = true;
+  try {
+    if (isFav.value) {
+      await api.removeFavorite(q.id);
+      favSet.value.delete(q.id);
+    } else {
+      await api.addFavorite(q.id);
+      favSet.value.add(q.id);
+    }
+    favSet.value = new Set(favSet.value);
+  } catch {
+    await refreshFavs();
+  } finally {
+    favBusy.value = false;
+  }
+}
+
 async function judge(): Promise<void> {
   const q = current.value;
   if (!q || judged.value) return;
@@ -142,27 +186,78 @@ function confirm(): void {
   void judge();
 }
 
-function next(): void {
+function markDone(): void {
+  const q = current.value;
+  if (q && !doneIds.value.includes(q.id)) doneIds.value.push(q.id);
+}
+
+async function next(): Promise<void> {
+  markDone();
+  const mode = (route.query.mode as string | undefined) || "seq";
   if (index.value < list.value.length - 1) {
     index.value += 1;
     reset();
-  } else {
-    router.push("/");
+    return;
   }
+  if (idsMode.value || mode !== "random") {
+    router.push(idsMode.value ? "/mistakes" : "/");
+    return;
+  }
+  try {
+    const chapterId = route.query.chapterId as string | undefined;
+    const more = await api.getQuestionList({ chapterId, mode: "random", limit: 20, excludeIds: doneIds.value });
+    if (more.length) {
+      list.value = [...list.value, ...more];
+      index.value += 1;
+      reset();
+      return;
+    }
+  } catch {
+    router.push("/");
+    return;
+  }
+  router.push("/");
 }
 
 async function load(): Promise<void> {
   loading.value = true;
   reset();
   index.value = 0;
+  doneIds.value = [];
+  idsMode.value = false;
   const chapterId = route.query.chapterId as string | undefined;
   const mode = (route.query.mode as string | undefined) || "seq";
+  const ids = parseIds(route.query.ids);
   let qs: Question[] = [];
   try {
-    qs = await api.getQuestionList({ chapterId, mode, limit: 20 });
+    if (ids.length) {
+      idsMode.value = true;
+      const rows = await api.getMistakes(ids);
+      const byId = new Map(rows.map((m) => [m.questionId, m.question]));
+      const missing = ids.filter((id) => !byId.has(id));
+      if (missing.length) {
+        const fetched = await Promise.all(missing.map((id) => api.getQuestionById(id).catch(() => null)));
+        for (const q of fetched) {
+          if (q) byId.set(q.id, q);
+        }
+      }
+      qs = ids
+        .map((id) => byId.get(id))
+        .filter((q): q is Question => Boolean(q))
+        .map((q) => normalizeQuestion(q));
+    } else {
+      qs = await api.getQuestionList({ chapterId, mode, limit: 20, excludeIds: doneIds.value });
+    }
   } catch {
-    qs = chapterId ? mockQuestions.filter((q) => q.chapterId === chapterId) : mockQuestions;
-    if (!qs.length) qs = mockQuestions;
+    if (ids.length) {
+      const local = ids
+        .map((id) => mockQuestions.find((q) => q.id === id))
+        .filter((q): q is Question => Boolean(q));
+      qs = local.length ? local : mockQuestions;
+    } else {
+      qs = chapterId ? mockQuestions.filter((q) => q.chapterId === chapterId) : mockQuestions;
+      if (!qs.length) qs = mockQuestions;
+    }
   }
   list.value = qs;
   loading.value = false;
@@ -170,6 +265,7 @@ async function load(): Promise<void> {
 
 onMounted(() => {
   logged.value = isLoggedIn();
+  void refreshFavs();
   void load();
 });
 
@@ -177,6 +273,7 @@ watch(
   () => route.fullPath,
   () => {
     logged.value = isLoggedIn();
+    void refreshFavs();
     void load();
   }
 );
