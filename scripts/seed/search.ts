@@ -11,8 +11,12 @@ export interface SearchRecord extends Record<string, unknown> {
   course: string;
 }
 
+function adminKey(): string | undefined {
+  return process.env.ALGOLIA_ADMIN_KEY ?? process.env.ALGOLIA_API_KEY;
+}
+
 export function algoliaEnabled(): boolean {
-  return Boolean(process.env.ALGOLIA_APP_ID && process.env.ALGOLIA_API_KEY);
+  return Boolean(process.env.ALGOLIA_APP_ID && adminKey());
 }
 
 export function algoliaIndexName(): string {
@@ -26,7 +30,7 @@ export async function pushRecords(
   if (!algoliaEnabled()) return { pushed: 0, failed: false };
   const client = algoliasearch(
     process.env.ALGOLIA_APP_ID as string,
-    process.env.ALGOLIA_API_KEY as string,
+    adminKey() as string,
   );
   await client.saveObjects({
     indexName: algoliaIndexName(),
@@ -39,7 +43,7 @@ export async function replaceIndex(records: SearchRecord[]): Promise<number> {
   if (records.length === 0) return 0;
   const client = algoliasearch(
     process.env.ALGOLIA_APP_ID as string,
-    process.env.ALGOLIA_API_KEY as string,
+    adminKey() as string,
   );
   await client.replaceAllObjects({
     indexName: algoliaIndexName(),
