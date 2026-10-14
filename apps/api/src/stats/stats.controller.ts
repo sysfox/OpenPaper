@@ -16,7 +16,7 @@ export class StatsController {
     });
     const latest = await this.prisma.$queryRaw<Array<{ score: number }>>`
       SELECT DISTINCT ON (question_id) score FROM attempts
-      WHERE user_id = ${user.id} ORDER BY question_id, created_at DESC
+      WHERE user_id = ${user.id}::uuid ORDER BY question_id, created_at DESC
     `;
     const questions = latest.length;
     const full = latest.filter((row) => row.score >= 100).length;
@@ -32,7 +32,7 @@ export class StatsController {
     >`
       WITH latest AS (
         SELECT DISTINCT ON (question_id) question_id, score FROM attempts
-        WHERE user_id = ${user.id} ORDER BY question_id, created_at DESC
+        WHERE user_id = ${user.id}::uuid ORDER BY question_id, created_at DESC
       )
       SELECT c.id, c.code, c.title,
              COUNT(q.id)::int AS total,
