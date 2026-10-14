@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { DbService } from "../db/db.service";
+import { Prisma } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 import { SearchQuery } from "./dto";
 
 const PUBLIC_FIELDS =
@@ -12,7 +13,7 @@ interface AlgoliaHit {
 
 @Controller("search")
 export class SearchController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
@@ -28,37 +29,26 @@ export class SearchController {
     if (hits) {
       return { items: hits };
     }
-    const client = await this.db.getPool().connect();
-    try {
-      await client.query("BEGIN");
-      await client.query("SET LOCAL statement_timeout = 5000");
-      const result = await client.query<Record<string, unknown>>(
-        `SELECT ${PUBLIC_FIELDS}, c.title AS "chapterTitle",
-               GREATEST(similarity(q.stem, $1), similarity(q.options::text, $1)) AS rank
-         FROM questions q LEFT JOIN chapters c ON c.id = q.chapter_id
-         WHERE q.status = 'published'
-           AND (q.stem ILIKE '%' || $1 || '%'
-             OR q.options::text ILIKE '%' || $1 || '%'
-             OR c.title ILIKE '%' || $1 || '%'
-             OR q.stem % $1 OR q.options::text % $1)
-         ORDER BY rank DESC, q.no ASC
-         LIMIT $2`,
-        [q, limit],
+    const rows = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SET LOCAL statement_timeout = 5000`;
+      return tx.$queryRaw<Record<string, unknown>[]>(
+        Prisma.sql`
+          SELECT ${Prisma.raw(PUBLIC_FIELDS)}, c.title AS "chapterTitle",
+                 GREATEST(similarity(q.stem, ${q}), similarity(q.options::text, ${q})) AS rank
+           FROM questions q LEFT JOIN chapters c ON c.id = q.chapter_id
+           WHERE q.status = 'published'
+             AND (q.stem ILIKE '%' || ${q} || '%'
+               OR q.options::text ILIKE '%' || ${q} || '%'
+               OR c.title ILIKE '%' || ${q} || '%'
+               OR q.stem % ${q} OR q.options::text % ${q})
+           ORDER BY rank DESC, q.no ASC
+           LIMIT ${limit}
+        `,
       );
-      await client.query("COMMIT");
-      return {
-        items: result.rows.map(({ rank, ...rest }) => rest),
-      };
-    } catch (e) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {
-        // 忽略回滚失败
-      }
-      throw e;
-    } finally {
-      client.release();
-    }
+    });
+    return {
+      items: rows.map(({ rank, ...rest }) => rest),
+    };
   }
 
   private async fromAlgolia(q: string, limit: number) {
@@ -101,18 +91,31 @@ export class SearchController {
       if (ids.length === 0) {
         return [];
       }
-      const rows = await this.db.query(
-        `SELECT ${PUBLIC_FIELDS}, c.title AS "chapterTitle" FROM questions q
-         LEFT JOIN chapters c ON c.id = q.chapter_id
-          WHERE q.id = ANY ($1) AND q.status = 'published'`,
-        [ids],
-      );
+      const rows = await this.prisma.question.findMany({
+        where: { id: { in: ids }, status: "published" },
+      });
+      const joined = await this.prisma.chapter.findMany({
+        where: { id: { in: rows.map((r) => r.chapterId) } },
+        select: { id: true, title: true },
+      });
+      const titleByChapter = new Map(joined.map((c) => [c.id, c.title]));
+      const shaped = rows.map((r) => ({
+        id: r.id,
+        chapterId: r.chapterId,
+        no: r.no,
+        type: r.type,
+        stem: r.stem,
+        options: r.options,
+        version: r.version,
+        status: r.status,
+        chapterTitle: titleByChapter.get(r.chapterId) ?? null,
+      }));
       const order = new Map(ids.map((id, i) => [id, i] as const));
-      rows.rows.sort(
+      shaped.sort(
         (a, b) =>
           (order.get(a.id) ?? ids.length) - (order.get(b.id) ?? ids.length),
       );
-      return rows.rows.slice(0, limit);
+      return shaped.slice(0, limit);
     } catch {
       return null;
     }

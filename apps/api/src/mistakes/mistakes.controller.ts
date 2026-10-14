@@ -11,7 +11,7 @@ import {
 } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { ListMistakesQuery, UpdateMistakeDto } from "./dto";
 
 const UUID_RE =
@@ -20,16 +20,13 @@ const UUID_RE =
 @Controller("mistakes")
 @UseGuards(JwtAuthGuard)
 export class MistakesController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   async list(
     @CurrentUser() user: { id: string },
     @Query() query: ListMistakesQuery,
   ) {
-    const params: unknown[] = [user.id];
-    let extra = "";
-    let paging = "";
     if (query.ids !== undefined) {
       const ids = query.ids
         .split(",")
@@ -38,28 +35,47 @@ export class MistakesController {
       if (ids.length === 0) {
         return { items: [] };
       }
-      params.push(ids);
-      extra = "AND m.question_id = ANY ($2)";
-      // 按 id 指定重刷时返回全部匹配，不做分页截断
-    } else {
-      const limit = Math.min(query.limit ?? 20, 100);
-      const offset = Math.max(query.offset ?? 0, 0);
-      params.push(limit, offset);
-      const limitIdx = params.length - 1;
-      const offsetIdx = params.length;
-      paging = `LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
+      const rows = await this.prisma.mistake.findMany({
+        where: { userId: user.id, questionId: { in: ids } },
+        include: { question: true },
+        orderBy: { updatedAt: "desc" },
+      });
+      return {
+        items: rows.map((m) => ({
+          questionId: m.question.id,
+          chapterId: m.question.chapterId,
+          no: m.question.no,
+          type: m.question.type,
+          stem: m.question.stem,
+          options: m.question.options,
+          wrongCount: m.wrongCount,
+          mastered: m.mastered,
+          updatedAt: m.updatedAt,
+        })),
+      };
     }
-    const result = await this.db.query(
-      `SELECT q.id AS questionId, q.chapter_id AS chapterId, q.no,
-              q.type, q.stem, q.options, m.wrong_count AS wrongCount,
-              m.mastered, m.updated_at AS updatedAt
-       FROM mistakes m JOIN questions q ON q.id = m.question_id
-       WHERE m.user_id = $1 ${extra}
-       ORDER BY m.updated_at DESC
-       ${paging}`,
-      params,
-    );
-    return { items: result.rows };
+    const take = Math.min(query.limit ?? 20, 100);
+    const skip = Math.max(query.offset ?? 0, 0);
+    const rows = await this.prisma.mistake.findMany({
+      where: { userId: user.id },
+      include: { question: true },
+      orderBy: { updatedAt: "desc" },
+      take,
+      skip,
+    });
+    return {
+      items: rows.map((m) => ({
+        questionId: m.question.id,
+        chapterId: m.question.chapterId,
+        no: m.question.no,
+        type: m.question.type,
+        stem: m.question.stem,
+        options: m.question.options,
+        wrongCount: m.wrongCount,
+        mastered: m.mastered,
+        updatedAt: m.updatedAt,
+      })),
+    };
   }
 
   @Patch(":qid")
@@ -71,12 +87,11 @@ export class MistakesController {
     if (!UUID_RE.test(qid)) {
       throw new BadRequestException("题目参数不对");
     }
-    const result = await this.db.query(
-      `UPDATE mistakes SET mastered = $3, updated_at = now()
-       WHERE user_id = $1 AND question_id = $2`,
-      [user.id, qid, dto.mastered],
-    );
-    if (result.rowCount === 0) {
+    const result = await this.prisma.mistake.updateMany({
+      where: { userId: user.id, questionId: qid },
+      data: { mastered: dto.mastered },
+    });
+    if (result.count === 0) {
       throw new NotFoundException("错题不存在");
     }
     return { ok: true, mastered: dto.mastered };

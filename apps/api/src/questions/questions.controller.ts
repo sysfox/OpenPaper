@@ -6,8 +6,9 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { ListQuestionsQuery } from "./dto";
 
 const PUBLIC_FIELDS =
@@ -15,6 +16,30 @@ const PUBLIC_FIELDS =
 
 const FULL_FIELDS =
   "id, chapter_id AS chapterId, no, type, stem, options, answer, answer AS correctAnswer, analysis, version, status";
+
+const publicSelect = {
+  id: true,
+  chapterId: true,
+  no: true,
+  type: true,
+  stem: true,
+  options: true,
+  version: true,
+  status: true,
+} as const;
+
+const fullSelect = {
+  id: true,
+  chapterId: true,
+  no: true,
+  type: true,
+  stem: true,
+  options: true,
+  answer: true,
+  analysis: true,
+  version: true,
+  status: true,
+} as const;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,9 +54,15 @@ function parseExcludeIds(raw?: string) {
     .filter((item) => UUID_RE.test(item));
 }
 
+function toFull(row: {
+  answer: unknown;
+} & Record<string, unknown>) {
+  return { ...row, correctAnswer: row.answer };
+}
+
 @Controller("questions")
 export class QuestionsController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   async list(@Query() query: ListQuestionsQuery) {
@@ -40,36 +71,34 @@ export class QuestionsController {
     const mode = query.mode ?? "seq";
     if (mode === "random") {
       const excludeIds = parseExcludeIds(query.excludeIds);
+      const excluded = excludeIds.length ? excludeIds : null;
       if (query.chapterId) {
-        const result = await this.db.query(
-          `SELECT ${PUBLIC_FIELDS} FROM questions
-           WHERE chapter_id = $1 AND status = 'published'
-             AND ($3::uuid[] IS NULL OR id <> ALL ($3))
-           ORDER BY random() LIMIT $2`,
-          [query.chapterId, limit, excludeIds.length ? excludeIds : null],
-        );
-        return { items: result.rows, nextCursor: null };
+        const items = await this.prisma.$queryRaw<
+          Record<string, unknown>[]
+        >`SELECT ${Prisma.raw(PUBLIC_FIELDS)} FROM questions
+           WHERE chapter_id = ${query.chapterId} AND status = 'published'
+             AND (${excluded}::uuid[] IS NULL OR id <> ALL (${excluded}))
+           ORDER BY random() LIMIT ${limit}`;
+        return { items, nextCursor: null };
       }
-      const result = await this.db.query(
-        `SELECT ${PUBLIC_FIELDS} FROM questions
+      const items = await this.prisma.$queryRaw<
+        Record<string, unknown>[]
+      >`SELECT ${Prisma.raw(PUBLIC_FIELDS)} FROM questions
          WHERE status = 'published'
-           AND ($2::uuid[] IS NULL OR id <> ALL ($2))
-         ORDER BY random() LIMIT $1`,
-        [limit, excludeIds.length ? excludeIds : null],
-      );
-      return { items: result.rows, nextCursor: null };
+           AND (${excluded}::uuid[] IS NULL OR id <> ALL (${excluded}))
+         ORDER BY random() LIMIT ${limit}`;
+      return { items, nextCursor: null };
     }
-    const whereChapter = query.chapterId ? "AND chapter_id = $3" : "";
-    const params = query.chapterId
-      ? [cursor, limit + 1, query.chapterId]
-      : [cursor, limit + 1];
-    const result = await this.db.query(
-      `SELECT ${PUBLIC_FIELDS} FROM questions
-       WHERE status = 'published' AND no > $1 ${whereChapter}
-       ORDER BY no ASC LIMIT $2`,
-      params,
-    );
-    const rows = result.rows;
+    const rows = await this.prisma.question.findMany({
+      select: publicSelect,
+      where: {
+        status: "published",
+        no: { gt: cursor },
+        ...(query.chapterId ? { chapterId: query.chapterId } : {}),
+      },
+      orderBy: { no: "asc" },
+      take: limit + 1,
+    });
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
     const nextCursor =
@@ -82,26 +111,22 @@ export class QuestionsController {
   @Get("no/:no/detail")
   @UseGuards(JwtAuthGuard)
   async byNoDetail(@Param("no") no: string) {
-    const result = await this.db.query(
-      `SELECT ${FULL_FIELDS}
-        FROM questions WHERE no = $1 AND status = 'published'`,
-      [Number(no)],
-    );
-    const row = result.rows[0];
+    const row = await this.prisma.question.findFirst({
+      select: fullSelect,
+      where: { no: Number(no), status: "published" },
+    });
     if (!row) {
       throw new NotFoundException("题目不存在");
     }
-    return row;
+    return toFull(row);
   }
 
   @Get("no/:no")
   async byNo(@Param("no") no: string) {
-    const result = await this.db.query(
-      `SELECT ${PUBLIC_FIELDS}
-        FROM questions WHERE no = $1 AND status = 'published'`,
-      [Number(no)],
-    );
-    const row = result.rows[0];
+    const row = await this.prisma.question.findFirst({
+      select: publicSelect,
+      where: { no: Number(no), status: "published" },
+    });
     if (!row) {
       throw new NotFoundException("题目不存在");
     }
@@ -111,26 +136,22 @@ export class QuestionsController {
   @Get(":id/detail")
   @UseGuards(JwtAuthGuard)
   async detailFull(@Param("id") id: string) {
-    const result = await this.db.query(
-      `SELECT ${FULL_FIELDS}
-        FROM questions WHERE id = $1 AND status = 'published'`,
-      [id],
-    );
-    const row = result.rows[0];
+    const row = await this.prisma.question.findFirst({
+      select: fullSelect,
+      where: { id, status: "published" },
+    });
     if (!row) {
       throw new NotFoundException("题目不存在");
     }
-    return row;
+    return toFull(row);
   }
 
   @Get(":id")
   async detail(@Param("id") id: string) {
-    const result = await this.db.query(
-      `SELECT ${PUBLIC_FIELDS}
-        FROM questions WHERE id = $1 AND status = 'published'`,
-      [id],
-    );
-    const row = result.rows[0];
+    const row = await this.prisma.question.findFirst({
+      select: publicSelect,
+      where: { id, status: "published" },
+    });
     if (!row) {
       throw new NotFoundException("题目不存在");
     }

@@ -1,31 +1,30 @@
 import { Controller, Get, Param } from "@nestjs/common";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Controller("courses")
 export class CoursesController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   async list() {
-    const result = await this.db.query(
-      "SELECT id, title, slug, cover, status FROM courses ORDER BY title",
-    );
-    return { items: result.rows };
+    const items = await this.prisma.course.findMany({
+      orderBy: { title: "asc" },
+    });
+    return { items };
   }
 
   @Get(":slug/chapters")
   async chapters(@Param("slug") slug: string) {
-    const course = await this.db.query<{ id: string }>(
-      "SELECT id FROM courses WHERE slug = $1",
-      [slug],
-    );
-    if (course.rowCount === 0) {
+    const course = await this.prisma.course.findFirst({
+      where: { slug },
+    });
+    if (!course) {
       return { items: [] };
     }
-    const result = await this.db.query(
-      "SELECT id, course_id AS courseId, code, title, sort FROM chapters WHERE course_id = $1 ORDER BY sort, code",
-      [course.rows[0].id],
-    );
-    return { items: result.rows };
+    const items = await this.prisma.chapter.findMany({
+      where: { courseId: course.id },
+      orderBy: [{ sort: "asc" }, { code: "asc" }],
+    });
+    return { items };
   }
 }

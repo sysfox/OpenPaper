@@ -12,7 +12,7 @@ import {
 } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { CreateFavoriteDto, ListFavoritesQuery } from "./dto";
 
 const UUID_RE =
@@ -21,25 +21,33 @@ const UUID_RE =
 @Controller("favorites")
 @UseGuards(JwtAuthGuard)
 export class FavoritesController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   async list(
     @CurrentUser() user: { id: string },
     @Query() query: ListFavoritesQuery,
   ) {
-    const limit = Math.min(query.limit ?? 20, 100);
-    const offset = Math.max(query.offset ?? 0, 0);
-    const result = await this.db.query(
-      `SELECT q.id AS questionId, q.chapter_id AS chapterId, q.no,
-              q.type, q.stem, q.options, f.created_at AS createdAt
-       FROM favorites f JOIN questions q ON q.id = f.question_id
-       WHERE f.user_id = $1
-       ORDER BY f.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [user.id, limit, offset],
-    );
-    return { items: result.rows };
+    const take = Math.min(query.limit ?? 20, 100);
+    const skip = Math.max(query.offset ?? 0, 0);
+    const rows = await this.prisma.favorite.findMany({
+      where: { userId: user.id },
+      include: { question: true },
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+    });
+    return {
+      items: rows.map((f) => ({
+        questionId: f.question.id,
+        chapterId: f.question.chapterId,
+        no: f.question.no,
+        type: f.question.type,
+        stem: f.question.stem,
+        options: f.question.options,
+        createdAt: f.createdAt,
+      })),
+    };
   }
 
   @Post()
@@ -47,18 +55,19 @@ export class FavoritesController {
     @CurrentUser() user: { id: string },
     @Body() dto: CreateFavoriteDto,
   ) {
-    const found = await this.db.query(
-      "SELECT id FROM questions WHERE id = $1 AND status = 'published'",
-      [dto.questionId],
-    );
-    if (found.rowCount === 0) {
+    const found = await this.prisma.question.findFirst({
+      where: { id: dto.questionId, status: "published" },
+    });
+    if (!found) {
       throw new NotFoundException("题目不存在");
     }
-    await this.db.query(
-      `INSERT INTO favorites (user_id, question_id)
-       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [user.id, dto.questionId],
-    );
+    await this.prisma.favorite.upsert({
+      where: {
+        userId_questionId: { userId: user.id, questionId: dto.questionId },
+      },
+      create: { userId: user.id, questionId: dto.questionId },
+      update: {},
+    });
     return { ok: true };
   }
 
@@ -70,10 +79,9 @@ export class FavoritesController {
     if (!UUID_RE.test(qid)) {
       throw new BadRequestException("题目参数不对");
     }
-    await this.db.query(
-      "DELETE FROM favorites WHERE user_id = $1 AND question_id = $2",
-      [user.id, qid],
-    );
+    await this.prisma.favorite.deleteMany({
+      where: { userId: user.id, questionId: qid },
+    });
     return { ok: true };
   }
 }

@@ -2,12 +2,12 @@ import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { getMastery, setMastery } from "../common/mastery-cache";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { ProgressQuery } from "./dto";
 
 @Controller("progress")
 export class ProgressController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -19,42 +19,45 @@ export class ProgressController {
     if (!chapterId) {
       return { total: 0, done: 0, lastNo: null, mastery: 0 };
     }
-    const questions = await this.db.query<{ id: string; no: number }>(
-      "SELECT id, no FROM questions WHERE chapter_id = $1 AND status = 'published'",
-      [chapterId],
-    );
-    if (questions.rowCount === 0) {
+    const questions = await this.prisma.question.findMany({
+      where: { chapterId, status: "published" },
+      select: { id: true, no: true },
+    });
+    if (questions.length === 0) {
       return { total: 0, done: 0, lastNo: null, mastery: 0 };
     }
-    const ids = questions.rows.map((row) => row.id);
-    const attempts = await this.db.query<{
-      question_id: string;
-      score: number;
-      created_at: string;
-    }>(
-      `SELECT DISTINCT ON (question_id) question_id, score, created_at
-       FROM attempts WHERE user_id = $1 AND question_id = ANY ($2)
-       ORDER BY question_id, created_at DESC`,
-      [user.id, ids],
-    );
-    const latest = new Map(attempts.rows.map((row) => [row.question_id, row]));
+    const ids = questions.map((row) => row.id);
+    const attempts = await this.prisma.attempt.findMany({
+      where: { userId: user.id, questionId: { in: ids } },
+      orderBy: { createdAt: "desc" },
+    });
+    const latest = new Map<string, (typeof attempts)[number]>();
+    for (const row of attempts) {
+      if (!latest.has(row.questionId)) {
+        latest.set(row.questionId, row);
+      }
+    }
     let lastNo: number | null = null;
     let lastTime = "";
-    for (const question of questions.rows) {
+    for (const question of questions) {
       const attempt = latest.get(question.id);
       if (!attempt) {
         continue;
       }
-      if (attempt.created_at >= lastTime) {
-        lastTime = attempt.created_at;
+      const createdAt =
+        attempt.createdAt instanceof Date
+          ? attempt.createdAt.toISOString()
+          : String(attempt.createdAt);
+      if (createdAt >= lastTime) {
+        lastTime = createdAt;
         lastNo = question.no;
       }
     }
-    const total = questions.rowCount ?? questions.rows.length;
+    const total = questions.length;
     let mastery = getMastery(user.id, chapterId);
     if (mastery === null) {
       let points = 0;
-      for (const question of questions.rows) {
+      for (const question of questions) {
         const attempt = latest.get(question.id);
         if (!attempt) {
           continue;
