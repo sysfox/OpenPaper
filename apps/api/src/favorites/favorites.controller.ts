@@ -7,12 +7,13 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { DbService } from "../db/db.service";
-import { CreateFavoriteDto } from "./dto";
+import { CreateFavoriteDto, ListFavoritesQuery } from "./dto";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,14 +24,20 @@ export class FavoritesController {
   constructor(private db: DbService) {}
 
   @Get()
-  async list(@CurrentUser() user: { id: string }) {
+  async list(
+    @CurrentUser() user: { id: string },
+    @Query() query: ListFavoritesQuery,
+  ) {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = Math.max(query.offset ?? 0, 0);
     const result = await this.db.query(
       `SELECT q.id AS questionId, q.chapter_id AS chapterId, q.no,
               q.type, q.stem, q.options, f.created_at AS createdAt
        FROM favorites f JOIN questions q ON q.id = f.question_id
        WHERE f.user_id = $1
-       ORDER BY f.created_at DESC`,
-      [user.id],
+       ORDER BY f.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [user.id, limit, offset],
     );
     return { items: result.rows };
   }

@@ -5,12 +5,13 @@ import {
   Get,
   NotFoundException,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { DbService } from "../db/db.service";
-import { CreateFeedbackDto } from "./dto";
+import { CreateFeedbackDto, ListFeedbacksQuery } from "./dto";
 
 @Controller("feedbacks")
 @UseGuards(JwtAuthGuard)
@@ -18,14 +19,20 @@ export class FeedbacksController {
   constructor(private db: DbService) {}
 
   @Get()
-  async list(@CurrentUser() user: { id: string }) {
+  async list(
+    @CurrentUser() user: { id: string },
+    @Query() query: ListFeedbacksQuery,
+  ) {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = Math.max(query.offset ?? 0, 0);
     const result = await this.db.query(
       `SELECT f.id, f.question_id AS questionId, q.no AS "questionNo",
               f.content, f.status, f.created_at AS createdAt
        FROM feedbacks f LEFT JOIN questions q ON q.id = f.question_id
        WHERE f.user_id = $1
-       ORDER BY f.created_at DESC`,
-      [user.id],
+       ORDER BY f.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [user.id, limit, offset],
     );
     return { items: result.rows };
   }

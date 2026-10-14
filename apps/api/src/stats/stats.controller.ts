@@ -26,9 +26,27 @@ export class StatsController {
       id: string;
       code: string;
       title: string;
+      total: number;
+      done: number;
+      points: number;
     }>(
-      "SELECT id, code, title FROM chapters ORDER BY sort, code",
-      [],
+      `WITH latest AS (
+         SELECT DISTINCT ON (question_id) question_id, score FROM attempts
+         WHERE user_id = $1 ORDER BY question_id, created_at DESC
+       )
+       SELECT c.id, c.code, c.title,
+              COUNT(q.id)::int AS total,
+              COUNT(l.question_id)::int AS done,
+              COALESCE(SUM(CASE WHEN l.score >= 100 THEN 1
+                                WHEN l.score >= 50 THEN 0.5
+                                ELSE 0 END), 0)::float AS points
+       FROM chapters c
+       LEFT JOIN questions q
+         ON q.chapter_id = c.id AND q.status = 'published'
+       LEFT JOIN latest l ON l.question_id = q.id
+       GROUP BY c.id, c.code, c.title, c.sort
+       ORDER BY c.sort, c.code`,
+      [user.id],
     );
     const chapters: Array<{
       chapterId: string;
@@ -39,36 +57,14 @@ export class StatsController {
       mastery: number;
     }> = [];
     for (const chapter of chaptersRes.rows) {
-      const qRes = await this.db.query<{ id: string }>(
-        "SELECT id FROM questions WHERE chapter_id = $1 AND status = 'published'",
-        [chapter.id],
-      );
-      const total = qRes.rowCount ?? qRes.rows.length;
-      let done = 0;
+      const total = chapter.total;
+      const done = chapter.done;
       let mastery = getMastery(user.id, chapter.id);
       if (total === 0) {
         mastery = 0;
-      } else {
-        const ids = qRes.rows.map((row) => row.id);
-        const aRes = await this.db.query<{ score: number }>(
-          `SELECT DISTINCT ON (question_id) score FROM attempts
-           WHERE user_id = $1 AND question_id = ANY ($2)
-           ORDER BY question_id, created_at DESC`,
-          [user.id, ids],
-        );
-        done = aRes.rows.length;
-        if (mastery === null) {
-          let points = 0;
-          for (const row of aRes.rows) {
-            if (row.score >= 100) {
-              points += 1;
-            } else if (row.score >= 50) {
-              points += 0.5;
-            }
-          }
-          mastery = Math.round((points / total) * 100) / 100;
-          setMastery(user.id, chapter.id, mastery);
-        }
+      } else if (mastery === null) {
+        mastery = Math.round((chapter.points / total) * 100) / 100;
+        setMastery(user.id, chapter.id, mastery);
       }
       chapters.push({
         chapterId: chapter.id,

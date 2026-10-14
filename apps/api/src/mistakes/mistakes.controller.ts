@@ -29,6 +29,7 @@ export class MistakesController {
   ) {
     const params: unknown[] = [user.id];
     let extra = "";
+    let paging = "";
     if (query.ids !== undefined) {
       const ids = query.ids
         .split(",")
@@ -39,6 +40,14 @@ export class MistakesController {
       }
       params.push(ids);
       extra = "AND m.question_id = ANY ($2)";
+      // 按 id 指定重刷时返回全部匹配，不做分页截断
+    } else {
+      const limit = Math.min(query.limit ?? 20, 100);
+      const offset = Math.max(query.offset ?? 0, 0);
+      params.push(limit, offset);
+      const limitIdx = params.length - 1;
+      const offsetIdx = params.length;
+      paging = `LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
     }
     const result = await this.db.query(
       `SELECT q.id AS questionId, q.chapter_id AS chapterId, q.no,
@@ -46,7 +55,8 @@ export class MistakesController {
               m.mastered, m.updated_at AS updatedAt
        FROM mistakes m JOIN questions q ON q.id = m.question_id
        WHERE m.user_id = $1 ${extra}
-       ORDER BY m.updated_at DESC`,
+       ORDER BY m.updated_at DESC
+       ${paging}`,
       params,
     );
     return { items: result.rows };
