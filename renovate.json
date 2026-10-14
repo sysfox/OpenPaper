@@ -23,11 +23,11 @@
       "platformAutomerge": true
     },
     {
-      "description": "次版本更新仅创建 PR",
+      "description": "次版本更新也自动合并",
       "matchUpdateTypes": [
         "minor"
       ],
-      "automerge": false
+      "automerge": true
     },
     {
       "description": "主版本更新需要手动审核",
