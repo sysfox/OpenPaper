@@ -1,0 +1,52 @@
+# Editors & IDEs
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# Agent & tooling
+.commandcode/
+.cursor/
+.claude/
+.opencode/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+.output/
+.nuxt/
+.next/
+.turbo/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Docker / local data
+data/
+*.dump
+*.sql.gz
+
+# Test & coverage
+coverage/
+.nyc_output/
