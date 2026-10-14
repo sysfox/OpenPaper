@@ -1,6 +1,26 @@
 import { PrismaClient } from "@prisma/client";
 import { pushRecords, type SearchRecord } from "./search.js";
 
+type PendingQueueRow = {
+  id: string;
+  questionId: string | null;
+};
+
+type IndexedQuestion = {
+  id: string;
+  no: number;
+  type: string;
+  stem: string;
+  options: unknown;
+  chapter: {
+    code: string;
+    title: string;
+    course: {
+      slug: string;
+    };
+  };
+};
+
 async function main(): Promise<void> {
   if (!process.env.DATABASE_URL) {
     console.error("缺少 DATABASE_URL");
@@ -20,17 +40,17 @@ async function main(): Promise<void> {
       console.log("sync_queue 无待重试任务");
       return;
     }
-    const rowIds = pending.map((row) => row.id);
+    const rowIds = pending.map((row: PendingQueueRow) => row.id);
     const questionIds = pending
-      .map((row) => row.questionId)
-      .filter((id): id is string => Boolean(id));
+      .map((row: PendingQueueRow) => row.questionId)
+      .filter((id: string | null): id is string => Boolean(id));
     let records: SearchRecord[] = [];
     if (questionIds.length) {
       const questions = await prisma.question.findMany({
         where: { id: { in: questionIds }, status: "published" },
         include: { chapter: { include: { course: true } } },
       });
-      records = questions.map((row) => ({
+      records = questions.map((row: IndexedQuestion) => ({
         objectID: row.id,
         no: row.no,
         type: row.type,
