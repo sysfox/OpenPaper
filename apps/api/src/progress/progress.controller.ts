@@ -3,6 +3,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { getMastery, setMastery } from "../common/mastery-cache";
 import { DbService } from "../db/db.service";
+import { ProgressQuery } from "./dto";
 
 @Controller("progress")
 export class ProgressController {
@@ -12,8 +13,9 @@ export class ProgressController {
   @UseGuards(JwtAuthGuard)
   async byChapter(
     @CurrentUser() user: { id: string },
-    @Query("chapterId") chapterId: string,
+    @Query() query: ProgressQuery,
   ) {
+    const chapterId = query.chapterId;
     if (!chapterId) {
       return { total: 0, done: 0, lastNo: null, mastery: 0 };
     }

@@ -112,7 +112,8 @@ function optClass(i: number): string {
   if (!judged.value || !result.value) {
     return picked.value.includes(i) ? "border-reactor-500 bg-reactor-100" : "border-ink/20 bg-white";
   }
-  const good = result.value.correctAnswer.includes(i);
+  // 后端公开字段已剔除答案：correctAnswer 缺失时按空数组处理，不崩
+  const good = (result.value.correctAnswer || []).includes(i);
   const mine = picked.value.includes(i);
   if (good) return "border-moss-600 bg-moss-100 text-moss-700";
   if (mine) return "border-alarm-600 bg-alarm-100 text-alarm-700";
@@ -236,7 +237,12 @@ async function load(): Promise<void> {
       const byId = new Map(rows.map((m) => [m.questionId, m.question]));
       const missing = ids.filter((id) => !byId.has(id));
       if (missing.length) {
-        const fetched = await Promise.all(missing.map((id) => api.getQuestionById(id).catch(() => null)));
+        // 登录优先取含答案解析的详情接口，公开接口无答案时本地判分降级、不崩
+        const fetchOne = (id: string) =>
+          isLoggedIn()
+            ? api.getQuestionDetailById(id).catch(() => api.getQuestionById(id).catch(() => null))
+            : api.getQuestionById(id).catch(() => null);
+        const fetched = await Promise.all(missing.map((id) => fetchOne(id)));
         for (const q of fetched) {
           if (q) byId.set(q.id, q);
         }
