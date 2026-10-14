@@ -1,9 +1,10 @@
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export class SearchQuery {
   @IsOptional()
   @IsString({ message: "关键词不对" })
+  @MaxLength(50, { message: "关键词太长" })
   q?: string;
 
   @IsOptional()

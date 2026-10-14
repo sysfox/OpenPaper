@@ -7,12 +7,14 @@ import {
 } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto } from "./dto";
+import { Throttle } from "@nestjs/throttler";
 
 @Controller("auth")
 export class AuthController {
   constructor(private auth: AuthService) {}
 
   @Post("register")
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   async register(@Body() dto: RegisterDto) {
     const result = await this.auth.register(dto.username, dto.password);
     if (!result.ok) {
@@ -23,6 +25,7 @@ export class AuthController {
   }
 
   @Post("login")
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   async login(@Body() dto: LoginDto) {
     const user = await this.auth.validate(dto.username, dto.password);
     if (!user) {
