@@ -7,11 +7,21 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r --if-present exec tsc --noEmit",
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --check .",
     "dev:api": "pnpm --filter @openpaper/api start:dev",
     "dev:web": "pnpm --filter @openpaper/web dev",
     "import:seed": "pnpm --filter @openpaper/scripts import:seed",
     "reindex": "pnpm --filter @openpaper/scripts reindex"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-vue": "^10.0.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.0.0",
+    "typescript-eslint": "^8.0.0"
   }
 }
