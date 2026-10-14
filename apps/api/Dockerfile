@@ -9,6 +9,7 @@ RUN pnpm install --frozen-lockfile --filter @openpaper/api --filter @openpaper/s
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/api apps/api
+RUN pnpm --filter @openpaper/api exec prisma generate
 RUN pnpm --filter @openpaper/shared build && pnpm --filter @openpaper/api build
 USER node
 WORKDIR /app/apps/api
