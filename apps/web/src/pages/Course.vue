@@ -64,6 +64,20 @@ onMounted(async () => {
   } catch {
     error.value = true;
     chapters.value = mockChapters;
+    return;
   }
+  if (!logged.value) return;
+  const rows = await Promise.all(
+    chapters.value.map(async (ch) => {
+      try {
+        const p = await api.getProgress(ch.id);
+        return { id: ch.id, mastery: p.mastery };
+      } catch {
+        return { id: ch.id, mastery: ch.mastery || 0 };
+      }
+    })
+  );
+  const byId = new Map(rows.map((r) => [r.id, r.mastery]));
+  chapters.value = chapters.value.map((ch) => ({ ...ch, mastery: byId.get(ch.id) ?? ch.mastery ?? 0 }));
 });
 </script>

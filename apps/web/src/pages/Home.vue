@@ -4,6 +4,14 @@
       <p class="text-sm tracking-widest text-reactor-500 font-bold">驾考宝典 FOR 网课</p>
       <h1 class="font-song text-3xl font-bold leading-snug mt-2">先看题，再懂核。<br />117 道，刷透它。</h1>
       <p class="mt-3 text-base text-paper/80">顺序刷 · 随机刷 · 错题重刷，手机上就能刷。</p>
+      <form @submit.prevent="goSearch" class="mt-5 flex gap-2">
+        <input
+          v-model="keyword"
+          placeholder="搜题干，如 铀-235"
+          class="flex-1 min-w-0 rounded-xl px-4 py-3 text-lg text-ink bg-paper"
+        />
+        <button type="submit" class="big-btn bg-reactor-500 text-ink rounded-xl px-5">搜题</button>
+      </form>
       <div class="mt-5 flex gap-3">
         <RouterLink to="/course/nuclear-science" class="big-btn flex-1 text-center bg-reactor-500 text-ink rounded-xl px-4 py-3">开始看课</RouterLink>
         <RouterLink :to="logged ? '/quiz' : '/login'" class="big-btn flex-1 text-center bg-paper text-ink rounded-xl px-4 py-3">去刷题</RouterLink>
@@ -32,12 +40,23 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { api, isLoggedIn, type Course } from "../api";
 import { mockCourses } from "../mock";
 
+const router = useRouter();
 const courses = ref<Course[]>(mockCourses);
 const error = ref(false);
 const logged = ref(isLoggedIn());
+const keyword = ref("");
+
+function goSearch(): void {
+  if (!keyword.value.trim()) {
+    router.push("/search");
+    return;
+  }
+  router.push(`/search?q=${encodeURIComponent(keyword.value.trim())}`);
+}
 
 onMounted(async () => {
   try {

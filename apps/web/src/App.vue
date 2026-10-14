@@ -7,20 +7,27 @@
           开卷 OpenPaper
         </RouterLink>
         <nav class="flex items-center gap-3 text-base">
+          <RouterLink to="/search" class="underline underline-offset-4">搜索</RouterLink>
           <RouterLink v-if="!logged" to="/login" class="underline underline-offset-4">登录</RouterLink>
           <button v-else class="underline underline-offset-4" @click="onLogout">退出</button>
         </nav>
       </div>
       <div class="rod-track h-1.5"></div>
     </header>
-    <main class="flex-1 w-full mx-auto max-w-3xl px-4 pb-24 pt-4">
+    <main class="flex-1 w-full mx-auto max-w-3xl px-4 pb-32 pt-4">
       <RouterView />
+      <footer class="mt-8 text-center text-sm text-ink/50 space-y-1">
+        <p>仅供学习交流</p>
+        <RouterLink to="/me" class="underline underline-offset-4">题目有误？去纠错</RouterLink>
+      </footer>
     </main>
     <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-ink/10">
-      <div class="mx-auto max-w-3xl grid grid-cols-3 text-center">
+      <div class="mx-auto max-w-3xl grid grid-cols-5 text-center">
         <RouterLink to="/" class="py-3 text-lg font-bold">首页</RouterLink>
         <RouterLink to="/course/nuclear-science" class="py-3 text-lg font-bold">课程</RouterLink>
         <RouterLink :to="logged ? '/quiz' : '/login'" class="py-3 text-lg font-bold text-reactor-700">刷题</RouterLink>
+        <RouterLink :to="logged ? '/mistakes' : '/login'" class="py-3 text-lg font-bold">错题</RouterLink>
+        <RouterLink :to="logged ? '/me' : '/login'" class="py-3 text-lg font-bold">我的</RouterLink>
       </div>
     </nav>
   </div>
