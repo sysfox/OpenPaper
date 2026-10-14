@@ -10,31 +10,38 @@ import {
 } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { CreateFeedbackDto, ListFeedbacksQuery } from "./dto";
 
 @Controller("feedbacks")
 @UseGuards(JwtAuthGuard)
 export class FeedbacksController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   async list(
     @CurrentUser() user: { id: string },
     @Query() query: ListFeedbacksQuery,
   ) {
-    const limit = Math.min(query.limit ?? 20, 100);
-    const offset = Math.max(query.offset ?? 0, 0);
-    const result = await this.db.query(
-      `SELECT f.id, f.question_id AS questionId, q.no AS "questionNo",
-              f.content, f.status, f.created_at AS createdAt
-       FROM feedbacks f LEFT JOIN questions q ON q.id = f.question_id
-       WHERE f.user_id = $1
-       ORDER BY f.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [user.id, limit, offset],
-    );
-    return { items: result.rows };
+    const take = Math.min(query.limit ?? 20, 100);
+    const skip = Math.max(query.offset ?? 0, 0);
+    const rows = await this.prisma.feedback.findMany({
+      where: { userId: user.id },
+      include: { question: { select: { no: true } } },
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+    });
+    return {
+      items: rows.map((f) => ({
+        id: f.id,
+        questionId: f.questionId,
+        questionNo: f.question?.no ?? null,
+        content: f.content,
+        status: f.status,
+        createdAt: f.createdAt,
+      })),
+    };
   }
 
   @Post()
@@ -46,20 +53,21 @@ export class FeedbacksController {
     if (!content) {
       throw new BadRequestException("内容不能为空");
     }
-    const found = await this.db.query(
-      "SELECT id FROM questions WHERE id = $1 AND status = 'published'",
-      [dto.questionId],
-    );
-    if (found.rowCount === 0) {
+    const found = await this.prisma.question.findFirst({
+      where: { id: dto.questionId, status: "published" },
+    });
+    if (!found) {
       throw new NotFoundException("题目不存在");
     }
-    const created = await this.db.query(
-      `INSERT INTO feedbacks (user_id, question_id, content)
-       VALUES ($1, $2, $3)
-       RETURNING id, question_id AS questionId, content,
-                 status, created_at AS createdAt`,
-      [user.id, dto.questionId, content],
-    );
-    return created.rows[0];
+    const created = await this.prisma.feedback.create({
+      data: { userId: user.id, questionId: dto.questionId, content },
+    });
+    return {
+      id: created.id,
+      questionId: created.questionId,
+      content: created.content,
+      status: created.status,
+      createdAt: created.createdAt,
+    };
   }
 }

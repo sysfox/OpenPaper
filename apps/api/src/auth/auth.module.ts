@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
-import { DbModule } from "../db/db.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { getJwtSecret } from "./jwt-secret";
@@ -10,7 +9,6 @@ import { MeController } from "./me.controller";
 
 @Module({
   imports: [
-    DbModule,
     PassportModule,
     JwtModule.register({
       global: true,

@@ -2,52 +2,51 @@ import { Controller, Get, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { getMastery, setMastery } from "../common/mastery-cache";
-import { DbService } from "../db/db.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Controller("me")
 @UseGuards(JwtAuthGuard)
 export class StatsController {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get("stats")
   async stats(@CurrentUser() user: { id: string }) {
-    const totalRes = await this.db.query<{ count: string }>(
-      "SELECT COUNT(*)::text AS count FROM attempts WHERE user_id = $1",
-      [user.id],
-    );
-    const latestRes = await this.db.query<{ score: number }>(
-      `SELECT DISTINCT ON (question_id) score FROM attempts
-       WHERE user_id = $1 ORDER BY question_id, created_at DESC`,
-      [user.id],
-    );
-    const questions = latestRes.rows.length;
-    const full = latestRes.rows.filter((row) => row.score >= 100).length;
-    const chaptersRes = await this.db.query<{
-      id: string;
-      code: string;
-      title: string;
-      total: number;
-      done: number;
-      points: number;
-    }>(
-      `WITH latest AS (
-         SELECT DISTINCT ON (question_id) question_id, score FROM attempts
-         WHERE user_id = $1 ORDER BY question_id, created_at DESC
-       )
-       SELECT c.id, c.code, c.title,
-              COUNT(q.id)::int AS total,
-              COUNT(l.question_id)::int AS done,
-              COALESCE(SUM(CASE WHEN l.score >= 100 THEN 1
-                                WHEN l.score >= 50 THEN 0.5
-                                ELSE 0 END), 0)::float AS points
-       FROM chapters c
-       LEFT JOIN questions q
-         ON q.chapter_id = c.id AND q.status = 'published'
-       LEFT JOIN latest l ON l.question_id = q.id
-       GROUP BY c.id, c.code, c.title, c.sort
-       ORDER BY c.sort, c.code`,
-      [user.id],
-    );
+    const total = await this.prisma.attempt.count({
+      where: { userId: user.id },
+    });
+    const latest = await this.prisma.$queryRaw<Array<{ score: number }>>`
+      SELECT DISTINCT ON (question_id) score FROM attempts
+      WHERE user_id = ${user.id} ORDER BY question_id, created_at DESC
+    `;
+    const questions = latest.length;
+    const full = latest.filter((row) => row.score >= 100).length;
+    const chaptersRes = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        code: string;
+        title: string;
+        total: number;
+        done: number;
+        points: number;
+      }>
+    >`
+      WITH latest AS (
+        SELECT DISTINCT ON (question_id) question_id, score FROM attempts
+        WHERE user_id = ${user.id} ORDER BY question_id, created_at DESC
+      )
+      SELECT c.id, c.code, c.title,
+             COUNT(q.id)::int AS total,
+             COUNT(l.question_id)::int AS done,
+             COALESCE(SUM(CASE WHEN l.score >= 100 THEN 1
+                               WHEN l.score >= 50 THEN 0.5
+                               ELSE 0 END), 0)::float AS points
+      FROM chapters c
+      LEFT JOIN questions q
+        ON q.chapter_id = c.id AND q.status = 'published'
+      LEFT JOIN latest l ON l.question_id = q.id
+      GROUP BY c.id, c.code, c.title, c.sort
+      ORDER BY c.sort, c.code
+    `;
     const chapters: Array<{
       chapterId: string;
       code: string;
@@ -56,7 +55,7 @@ export class StatsController {
       done: number;
       mastery: number;
     }> = [];
-    for (const chapter of chaptersRes.rows) {
+    for (const chapter of chaptersRes) {
       const total = chapter.total;
       const done = chapter.done;
       let mastery = getMastery(user.id, chapter.id);
@@ -76,7 +75,7 @@ export class StatsController {
       });
     }
     return {
-      attempts: Number(totalRes.rows[0]?.count ?? 0),
+      attempts: total,
       questions,
       fullRate: questions ? Math.round((full / questions) * 100) / 100 : 0,
       chapters,

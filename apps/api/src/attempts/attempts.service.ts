@@ -1,23 +1,11 @@
-import {
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { grade, QuestionType } from "@openpaper/shared";
 import { invalidateMastery } from "../common/mastery-cache";
-import { DbService } from "../db/db.service";
-
-interface QuestionRow {
-  id: string;
-  chapter_id: string;
-  type: QuestionType;
-  answer: Array<string | number>;
-  analysis: string;
-  version: number;
-}
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class AttemptsService {
-  constructor(private db: DbService) {}
+  constructor(private prisma: PrismaService) {}
 
   async submit(
     userId: string,
@@ -25,44 +13,58 @@ export class AttemptsService {
     picked: Array<string | number>,
     clientVersion: number,
   ) {
-    const found = await this.db.query<QuestionRow>(
-      "SELECT id, chapter_id, type, answer, analysis, version FROM questions WHERE id = $1 AND status = 'published'",
-      [questionId],
-    );
-    const question = found.rows[0];
+    const question = await this.prisma.question.findFirst({
+      where: { id: questionId, status: "published" },
+    });
     if (!question) {
       throw new NotFoundException("题目不存在");
     }
-    const answer = Array.isArray(question.answer) ? question.answer : [];
-    const result = grade(question.type, answer, picked ?? []);
-    await this.db.query(
-      `INSERT INTO attempts (user_id, question_id, version, picked, score, is_full)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        userId,
-        questionId,
-        clientVersion,
-        JSON.stringify(picked ?? []),
-        result.score,
-        result.isFull,
-      ],
+    const answer = Array.isArray(question.answer)
+      ? (question.answer as Array<string | number>)
+      : [];
+    const result = grade(
+      question.type as QuestionType,
+      answer,
+      picked ?? [],
     );
+    const pickedArr = picked ?? [];
     if (result.score < 100) {
-      await this.db.query(
-        `INSERT INTO mistakes (user_id, question_id, wrong_count, mastered, updated_at)
-         VALUES ($1, $2, 1, FALSE, now())
-         ON CONFLICT (user_id, question_id)
-         DO UPDATE SET wrong_count = mistakes.wrong_count + 1, mastered = FALSE, updated_at = now()`,
-        [userId, questionId],
-      );
+      await this.prisma.$transaction([
+        this.prisma.attempt.create({
+          data: {
+            userId,
+            questionId,
+            version: clientVersion,
+            picked: pickedArr,
+            score: result.score,
+            isFull: result.isFull,
+          },
+        }),
+        this.prisma.mistake.upsert({
+          where: { userId_questionId: { userId, questionId } },
+          create: { userId, questionId, wrongCount: 1, mastered: false },
+          update: { wrongCount: { increment: 1 }, mastered: false },
+        }),
+      ]);
     } else {
-      await this.db.query(
-        `UPDATE mistakes SET mastered = TRUE, updated_at = now()
-         WHERE user_id = $1 AND question_id = $2`,
-        [userId, questionId],
-      );
+      await this.prisma.$transaction([
+        this.prisma.attempt.create({
+          data: {
+            userId,
+            questionId,
+            version: clientVersion,
+            picked: pickedArr,
+            score: result.score,
+            isFull: result.isFull,
+          },
+        }),
+        this.prisma.mistake.updateMany({
+          where: { userId, questionId },
+          data: { mastered: true },
+        }),
+      ]);
     }
-    invalidateMastery(userId, question.chapter_id);
+    invalidateMastery(userId, question.chapterId);
     return {
       score: result.score,
       isFull: result.isFull,
