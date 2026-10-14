@@ -3,12 +3,14 @@ import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { AttemptsService } from "./attempts.service";
 import { CreateAttemptDto } from "./dto";
+import { Throttle } from "@nestjs/throttler";
 
 @Controller("attempts")
 export class AttemptsController {
   constructor(private attempts: AttemptsService) {}
 
   @Post()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @UseGuards(JwtAuthGuard)
   submit(
     @CurrentUser() user: { id: string },

@@ -1,4 +1,5 @@
 import { Controller, Get, Query } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { DbService } from "../db/db.service";
 import { SearchQuery } from "./dto";
 
@@ -14,8 +15,11 @@ export class SearchController {
   constructor(private db: DbService) {}
 
   @Get()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   async search(@Query() query: SearchQuery) {
-    const q = (query.q ?? "").trim();
+    const raw = (query.q ?? "").trim();
+    // DTO 已用 @MaxLength(50) 判 400，这里再截断做纵深防御
+    const q = raw.slice(0, 50);
     const limit = Math.min(query.limit ?? 10, 20);
     if (!q) {
       return { items: [] };
@@ -24,28 +28,43 @@ export class SearchController {
     if (hits) {
       return { items: hits };
     }
-    const result = await this.db.query(
-      `SELECT ${PUBLIC_FIELDS}, c.title AS "chapterTitle",
-              GREATEST(similarity(q.stem, $1), similarity(q.options::text, $1)) AS rank
-       FROM questions q LEFT JOIN chapters c ON c.id = q.chapter_id
-       WHERE q.status = 'published'
-         AND (q.stem ILIKE '%' || $1 || '%'
-           OR q.options::text ILIKE '%' || $1 || '%'
-           OR c.title ILIKE '%' || $1 || '%'
-           OR q.stem % $1 OR q.options::text % $1)
-       ORDER BY rank DESC, q.no ASC
-       LIMIT $2`,
-      [q, limit],
-    );
-    return {
-      items: result.rows.map(({ rank, ...rest }) => rest),
-    };
+    const client = await this.db.getPool().connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL statement_timeout = 5000");
+      const result = await client.query<Record<string, unknown>>(
+        `SELECT ${PUBLIC_FIELDS}, c.title AS "chapterTitle",
+               GREATEST(similarity(q.stem, $1), similarity(q.options::text, $1)) AS rank
+         FROM questions q LEFT JOIN chapters c ON c.id = q.chapter_id
+         WHERE q.status = 'published'
+           AND (q.stem ILIKE '%' || $1 || '%'
+             OR q.options::text ILIKE '%' || $1 || '%'
+             OR c.title ILIKE '%' || $1 || '%'
+             OR q.stem % $1 OR q.options::text % $1)
+         ORDER BY rank DESC, q.no ASC
+         LIMIT $2`,
+        [q, limit],
+      );
+      await client.query("COMMIT");
+      return {
+        items: result.rows.map(({ rank, ...rest }) => rest),
+      };
+    } catch (e) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // 忽略回滚失败
+      }
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   private async fromAlgolia(q: string, limit: number) {
     const appId = process.env.ALGOLIA_APP_ID;
     const apiKey =
-      process.env.ALGOLIA_API_KEY ?? process.env.ALGOLIA_SEARCH_KEY;
+      process.env.ALGOLIA_SEARCH_KEY ?? process.env.ALGOLIA_API_KEY;
     const index = process.env.ALGOLIA_INDEX ?? "questions";
     if (!appId || !apiKey) {
       return null;
