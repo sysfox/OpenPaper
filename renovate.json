@@ -5,8 +5,8 @@
   ],
   "timezone": "Asia/Shanghai",
   "dependencyDashboard": true,
-  "prConcurrentLimit": 5,
-  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 5,
   "rangeStrategy": "bump",
   "labels": [
     "dependencies"
