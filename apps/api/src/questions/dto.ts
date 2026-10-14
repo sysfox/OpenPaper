@@ -22,4 +22,8 @@ export class ListQuestionsQuery {
   @IsInt({ message: "游标参数不对" })
   @Min(0)
   cursor?: number = 0;
+
+  @IsOptional()
+  @IsString({ message: "去重参数不对" })
+  excludeIds?: string;
 }

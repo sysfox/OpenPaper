@@ -5,6 +5,19 @@ import { ListQuestionsQuery } from "./dto";
 const PUBLIC_FIELDS =
   "id, chapter_id AS chapterId, no, type, stem, options, version, status";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseExcludeIds(raw?: string) {
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => UUID_RE.test(item));
+}
+
 @Controller("questions")
 export class QuestionsController {
   constructor(private db: DbService) {}
@@ -15,20 +28,23 @@ export class QuestionsController {
     const cursor = query.cursor ?? 0;
     const mode = query.mode ?? "seq";
     if (mode === "random") {
+      const excludeIds = parseExcludeIds(query.excludeIds);
       if (query.chapterId) {
         const result = await this.db.query(
           `SELECT ${PUBLIC_FIELDS} FROM questions
            WHERE chapter_id = $1 AND status = 'published'
+             AND ($3::uuid[] IS NULL OR id <> ALL ($3))
            ORDER BY random() LIMIT $2`,
-          [query.chapterId, limit],
+          [query.chapterId, limit, excludeIds.length ? excludeIds : null],
         );
         return { items: result.rows, nextCursor: null };
       }
       const result = await this.db.query(
         `SELECT ${PUBLIC_FIELDS} FROM questions
          WHERE status = 'published'
+           AND ($2::uuid[] IS NULL OR id <> ALL ($2))
          ORDER BY random() LIMIT $1`,
-        [limit],
+        [limit, excludeIds.length ? excludeIds : null],
       );
       return { items: result.rows, nextCursor: null };
     }

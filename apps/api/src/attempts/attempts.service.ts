@@ -3,10 +3,12 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { grade, QuestionType } from "@openpaper/shared";
+import { invalidateMastery } from "../common/mastery-cache";
 import { DbService } from "../db/db.service";
 
 interface QuestionRow {
   id: string;
+  chapter_id: string;
   type: QuestionType;
   answer: Array<string | number>;
   analysis: string;
@@ -24,7 +26,7 @@ export class AttemptsService {
     clientVersion: number,
   ) {
     const found = await this.db.query<QuestionRow>(
-      "SELECT id, type, answer, analysis, version FROM questions WHERE id = $1 AND status = 'published'",
+      "SELECT id, chapter_id, type, answer, analysis, version FROM questions WHERE id = $1 AND status = 'published'",
       [questionId],
     );
     const question = found.rows[0];
@@ -60,6 +62,7 @@ export class AttemptsService {
         [userId, questionId],
       );
     }
+    invalidateMastery(userId, question.chapter_id);
     return {
       score: result.score,
       isFull: result.isFull,
