@@ -5,10 +5,17 @@
   "type": "module",
   "scripts": {
     "import:seed": "tsx seed/import.ts",
-    "reindex": "tsx seed/reindex.ts"
+    "reindex": "tsx seed/reindex.ts",
+    "sync:retry": "tsx seed/sync-retry.ts"
   },
   "devDependencies": {
+    "@types/node": "^20.12.0",
+    "@types/pg": "^8.11.0",
     "tsx": "^4.16.2",
     "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "algoliasearch": "^5.60.0",
+    "pg": "^8.12.0"
   }
 }
