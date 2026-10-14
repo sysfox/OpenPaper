@@ -1,9 +1,20 @@
-import { Controller, Get, NotFoundException, Param, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { DbService } from "../db/db.service";
 import { ListQuestionsQuery } from "./dto";
 
 const PUBLIC_FIELDS =
   "id, chapter_id AS chapterId, no, type, stem, options, version, status";
+
+const FULL_FIELDS =
+  "id, chapter_id AS chapterId, no, type, stem, options, answer, answer AS correctAnswer, analysis, version, status";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -68,13 +79,42 @@ export class QuestionsController {
     return { items, nextCursor };
   }
 
+  @Get("no/:no/detail")
+  @UseGuards(JwtAuthGuard)
+  async byNoDetail(@Param("no") no: string) {
+    const result = await this.db.query(
+      `SELECT ${FULL_FIELDS}
+        FROM questions WHERE no = $1 AND status = 'published'`,
+      [Number(no)],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new NotFoundException("题目不存在");
+    }
+    return row;
+  }
+
   @Get("no/:no")
   async byNo(@Param("no") no: string) {
     const result = await this.db.query(
-      `SELECT id, chapter_id AS chapterId, no, type, stem, options,
-              answer, answer AS correctAnswer, analysis, version, status
-       FROM questions WHERE no = $1 AND status = 'published'`,
+      `SELECT ${PUBLIC_FIELDS}
+        FROM questions WHERE no = $1 AND status = 'published'`,
       [Number(no)],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new NotFoundException("题目不存在");
+    }
+    return row;
+  }
+
+  @Get(":id/detail")
+  @UseGuards(JwtAuthGuard)
+  async detailFull(@Param("id") id: string) {
+    const result = await this.db.query(
+      `SELECT ${FULL_FIELDS}
+        FROM questions WHERE id = $1 AND status = 'published'`,
+      [id],
     );
     const row = result.rows[0];
     if (!row) {
@@ -86,9 +126,8 @@ export class QuestionsController {
   @Get(":id")
   async detail(@Param("id") id: string) {
     const result = await this.db.query(
-      `SELECT id, chapter_id AS chapterId, no, type, stem, options,
-              answer, answer AS correctAnswer, analysis, version, status
-       FROM questions WHERE id = $1 AND status = 'published'`,
+      `SELECT ${PUBLIC_FIELDS}
+        FROM questions WHERE id = $1 AND status = 'published'`,
       [id],
     );
     const row = result.rows[0];

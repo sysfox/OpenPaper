@@ -17,10 +17,11 @@
           :class="answer.includes(i) ? 'border-moss-600 bg-moss-100' : 'border-ink/15'"
         >{{ letter(i) }}. {{ opt }}</li>
       </ol>
-      <div class="rounded-xl bg-paper border border-ink/10 p-4">
-        <p class="text-base"><span class="font-bold">答案：</span>{{ answerText }}</p>
-        <p class="mt-2 text-base leading-relaxed"><span class="font-bold">解析：</span>{{ q.analysis || "暂无解析，欢迎纠错补充。" }}</p>
+      <div v-if="answer.length || q.analysis" class="rounded-xl bg-paper border border-ink/10 p-4">
+        <p v-if="answer.length" class="text-base"><span class="font-bold">答案：</span>{{ answerText }}</p>
+        <p v-if="q.analysis" class="mt-2 text-base leading-relaxed"><span class="font-bold">解析：</span>{{ q.analysis }}</p>
       </div>
+      <p v-else class="rounded-xl bg-paper border border-ink/10 p-4 text-base text-ink/60">游客只读看题干选项，登录后查看答案解析。</p>
       <div class="flex gap-2">
         <button @click="go(q.no - 1)" :disabled="q.no <= 1" class="big-btn flex-1 border-2 border-ink rounded-xl disabled:opacity-30">上一题</button>
         <button @click="go(q.no + 1)" class="big-btn flex-1 bg-ink text-paper rounded-xl">下一题</button>
@@ -59,7 +60,10 @@ async function load(): Promise<void> {
   logged.value = isLoggedIn();
   const no = Number(props.no);
   try {
-    q.value = await api.getQuestionByNo(no);
+    // 登录优先取含答案解析的详情接口，失败/未登录回落公开接口
+    q.value = logged.value
+      ? await api.getQuestionDetailByNo(no).catch(() => api.getQuestionByNo(no))
+      : await api.getQuestionByNo(no);
   } catch {
     q.value = findMockQuestion(no) || null;
   }

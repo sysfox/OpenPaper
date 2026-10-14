@@ -1,3 +1,7 @@
+// 安全说明（未迁 Cookie，缓解措施）：
+// - token 存 localStorage，存在 XSS 窃取风险；缓解靠 CSP + 全站文本插值渲染（勿用 v-html/innerHTML），
+//   登录/请求链路不打 token 日志，退出走 api.logout() 清 token。
+// - 若将来迁 HttpOnly Cookie，需后端加 CSRF 防护并改登录态逻辑，改动大故本次不做。
 const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 const TOKEN_KEY = "openpaper_token";
 
@@ -275,6 +279,13 @@ export const api = {
   },
   getQuestionById(id: string): Promise<Question> {
     return request<Question>(`/questions/${id}`);
+  },
+  // 登录可见含答案解析的详情；未登录调会 401，调用方回落到公开接口
+  getQuestionDetailByNo(no: number): Promise<Question> {
+    return request<Question>(`/questions/no/${no}/detail`);
+  },
+  getQuestionDetailById(id: string): Promise<Question> {
+    return request<Question>(`/questions/${id}/detail`);
   },
   submitAttempt(questionId: string, picked: number[], version?: number): Promise<AttemptResult> {
     return request<AttemptResult>("/attempts", {
