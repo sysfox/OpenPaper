@@ -1,21 +1,10 @@
-import { Pool } from "pg";
+import { PrismaClient } from "@prisma/client";
 import {
   algoliaEnabled,
   algoliaIndexName,
   replaceIndex,
   type SearchRecord,
 } from "./search.js";
-
-interface QuestionRow {
-  id: string;
-  no: number;
-  type: string;
-  stem: string;
-  options: unknown;
-  chapterCode: string;
-  chapter: string;
-  course: string;
-}
 
 async function main(): Promise<void> {
   if (!algoliaEnabled()) {
@@ -26,31 +15,29 @@ async function main(): Promise<void> {
     console.error("缺少 DATABASE_URL");
     process.exit(1);
   }
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL,
+  });
   try {
-    const result = await pool.query<QuestionRow>(
-      `SELECT q.id, q.no, q.type, q.stem, q.options,
-              c.code AS "chapterCode", c.title AS chapter, co.slug AS course
-       FROM questions q
-       JOIN chapters c ON c.id = q.chapter_id
-       JOIN courses co ON co.id = c.course_id
-       WHERE q.status = 'published'
-       ORDER BY q.no`,
-    );
-    const records: SearchRecord[] = result.rows.map((row) => ({
+    const questions = await prisma.question.findMany({
+      where: { status: "published" },
+      include: { chapter: { include: { course: true } } },
+      orderBy: { no: "asc" },
+    });
+    const records: SearchRecord[] = questions.map((row) => ({
       objectID: row.id,
       no: row.no,
       type: row.type,
       stem: row.stem,
       options: Array.isArray(row.options) ? (row.options as string[]) : [],
-      chapterCode: row.chapterCode,
-      chapter: row.chapter,
-      course: row.course,
+      chapterCode: row.chapter.code,
+      chapter: row.chapter.title,
+      course: row.chapter.course.slug,
     }));
     const count = await replaceIndex(records);
     console.log(`重建索引 ${algoliaIndexName()}，共 ${count} 条`);
   } finally {
-    await pool.end();
+    await prisma.$disconnect();
   }
 }
 
