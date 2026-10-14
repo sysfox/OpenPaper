@@ -5,15 +5,32 @@
       <h1 class="font-song text-3xl font-bold mt-1">我的</h1>
     </div>
 
-    <div v-if="!logged" class="bg-white border-2 border-ink rounded-2xl p-6 text-center space-y-4">
+    <div
+      v-if="!logged"
+      class="bg-white border-2 border-ink rounded-2xl p-6 text-center space-y-4"
+    >
       <h2 class="text-2xl font-bold">登录后看统计</h2>
       <p class="text-lg text-ink/70">刷题数和掌握度只记在你的账号里。</p>
-      <RouterLink to="/login" class="big-btn block bg-reactor-500 text-ink rounded-xl px-4 py-3">去登录</RouterLink>
+      <RouterLink
+        to="/login"
+        class="big-btn block bg-reactor-500 text-ink rounded-xl px-4 py-3"
+        >去登录</RouterLink
+      >
     </div>
 
     <div v-else class="space-y-4">
-      <div v-if="loading" class="bg-white rounded-2xl border-2 border-ink p-6 text-lg">统计加载中…</div>
-      <div v-else-if="error" class="bg-alarm-100 text-alarm-700 rounded-xl p-4 text-base">{{ error }}</div>
+      <div
+        v-if="loading"
+        class="bg-white rounded-2xl border-2 border-ink p-6 text-lg"
+      >
+        统计加载中…
+      </div>
+      <div
+        v-else-if="error"
+        class="bg-alarm-100 text-alarm-700 rounded-xl p-4 text-base"
+      >
+        {{ error }}
+      </div>
       <template v-else>
         <div class="grid grid-cols-2 gap-3">
           <div class="bg-white rounded-2xl border-2 border-ink p-4 text-center">
@@ -22,20 +39,33 @@
           </div>
           <div class="bg-white rounded-2xl border-2 border-ink p-4 text-center">
             <p class="text-sm font-bold text-ink/50">满分率</p>
-            <p class="text-3xl font-bold mt-1">{{ Math.round((stats?.fullRate || 0) * 100) }}%</p>
+            <p class="text-3xl font-bold mt-1">
+              {{ Math.round((stats?.fullRate || 0) * 100) }}%
+            </p>
           </div>
         </div>
 
         <div class="bg-white rounded-2xl border-2 border-ink p-4 space-y-3">
           <h2 class="text-xl font-bold">章节掌握度</h2>
-          <div v-if="!stats?.chapters.length" class="text-base text-ink/60">还没数据，先去刷几道。</div>
-          <div v-for="c in stats?.chapters" :key="c.chapterId" class="space-y-1">
+          <div v-if="!stats?.chapters.length" class="text-base text-ink/60">
+            还没数据，先去刷几道。
+          </div>
+          <div
+            v-for="c in stats?.chapters"
+            :key="c.chapterId"
+            class="space-y-1"
+          >
             <div class="flex justify-between text-base">
               <span class="font-bold">{{ c.title || c.chapterId }}</span>
-              <span class="text-ink/60">{{ Math.round(c.mastery * 100) }}%</span>
+              <span class="text-ink/60"
+                >{{ Math.round(c.mastery * 100) }}%</span
+              >
             </div>
             <div class="h-3 rounded-full bg-ink/10 overflow-hidden">
-              <div class="h-full bg-reactor-500 rounded-full" :style="{ width: `${Math.round(c.mastery * 100)}%` }"></div>
+              <div
+                class="h-full bg-reactor-500 rounded-full"
+                :style="{ width: `${Math.round(c.mastery * 100)}%` }"
+              ></div>
             </div>
           </div>
         </div>
@@ -55,17 +85,34 @@
               class="flex-1 min-w-0 border-2 border-ink rounded-xl px-3 py-3 text-lg"
             />
           </div>
-          <button @click="sendFeedback" :disabled="fbBusy" class="big-btn w-full bg-ink text-paper rounded-xl disabled:opacity-50">
+          <button
+            :disabled="fbBusy"
+            class="big-btn w-full bg-ink text-paper rounded-xl disabled:opacity-50"
+            @click="sendFeedback"
+          >
             {{ fbBusy ? "提交中…" : "提交纠错" }}
           </button>
-          <p v-if="fbMsg" class="text-base text-moss-700 font-bold">{{ fbMsg }}</p>
+          <p v-if="fbMsg" class="text-base text-moss-700 font-bold">
+            {{ fbMsg }}
+          </p>
         </div>
 
         <div class="bg-white rounded-2xl border-2 border-ink p-4 space-y-2">
           <h2 class="text-xl font-bold">我的纠错记录</h2>
-          <div v-if="!feedbacks.length" class="text-base text-ink/60">暂无记录。</div>
-          <div v-for="f in feedbacks" :key="f.id" class="border-t border-ink/10 pt-2 first:border-0 first:pt-0">
-            <p class="text-base"><span class="font-bold">{{ f.questionNo ? `第 ${f.questionNo} 题` : "题目" }}</span> · {{ statusName(f.status) }}</p>
+          <div v-if="!feedbacks.length" class="text-base text-ink/60">
+            暂无记录。
+          </div>
+          <div
+            v-for="f in feedbacks"
+            :key="f.id"
+            class="border-t border-ink/10 pt-2 first:border-0 first:pt-0"
+          >
+            <p class="text-base">
+              <span class="font-bold">{{
+                f.questionNo ? `第 ${f.questionNo} 题` : "题目"
+              }}</span>
+              · {{ statusName(f.status) }}
+            </p>
             <p class="text-base text-ink/70">{{ f.content }}</p>
           </div>
         </div>
@@ -94,7 +141,8 @@ function statusName(s: string): string {
   return s;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function sendFeedback(): Promise<void> {
   fbMsg.value = "";

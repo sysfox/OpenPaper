@@ -23,10 +23,15 @@ export interface ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...headers, ...(init.headers as Record<string, string>) } });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: { ...headers, ...(init.headers as Record<string, string>) },
+  });
   if (!res.ok) {
     let message = `请求失败 ${res.status}`;
     try {
@@ -166,8 +171,12 @@ export function normalizeQuestion(raw: unknown): Question {
     chapterId: rawStr(pick(r, "chapterId", "chapter_id") ?? "") || undefined,
     type: (pick(r, "type") as QuestionType) || "single",
     stem: rawStr(pick(r, "stem")),
-    options: Array.isArray(r.options) ? (r.options as unknown[]).map((o) => String(o)) : [],
-    answer: Array.isArray(answer) ? (answer as unknown[]).map((v) => Number(v)) : [],
+    options: Array.isArray(r.options)
+      ? (r.options as unknown[]).map((o) => String(o))
+      : [],
+    answer: Array.isArray(answer)
+      ? (answer as unknown[]).map((v) => Number(v))
+      : [],
     analysis: rawStr(pick(r, "analysis") ?? "") || undefined,
     version: rawNum(pick(r, "version"), 1),
   };
@@ -175,7 +184,10 @@ export function normalizeQuestion(raw: unknown): Question {
 
 function normalizeMistake(raw: unknown): Mistake {
   const r = ((raw || {}) as Raw) || {};
-  const nested = r.question && typeof r.question === "object" ? normalizeQuestion(r.question) : null;
+  const nested =
+    r.question && typeof r.question === "object"
+      ? normalizeQuestion(r.question)
+      : null;
   const flat = nested || normalizeQuestion(r);
   const qid = rawStr(pick(r, "questionId", "question_id") ?? flat.id);
   return {
@@ -188,7 +200,10 @@ function normalizeMistake(raw: unknown): Mistake {
 
 function normalizeFavorite(raw: unknown): Favorite {
   const r = ((raw || {}) as Raw) || {};
-  const nested = r.question && typeof r.question === "object" ? normalizeQuestion(r.question) : undefined;
+  const nested =
+    r.question && typeof r.question === "object"
+      ? normalizeQuestion(r.question)
+      : undefined;
   const flat = nested || normalizeQuestion(r);
   const qid = rawStr(pick(r, "questionId", "question_id") ?? flat.id);
   const created = rawStr(pick(r, "createdAt", "created_at") ?? "");
@@ -228,15 +243,29 @@ function normalizeStats(raw: unknown): Stats {
       })
     : [];
   return {
-    answered: rawNum(pick(r, "answered", "totalAttempts", "attempts", "total", "answeredCount"), 0),
-    fullRate: toRate(pick(r, "fullRate", "correctRate", "accuracy", "full_ratio")),
+    answered: rawNum(
+      pick(
+        r,
+        "answered",
+        "totalAttempts",
+        "attempts",
+        "total",
+        "answeredCount",
+      ),
+      0,
+    ),
+    fullRate: toRate(
+      pick(r, "fullRate", "correctRate", "accuracy", "full_ratio"),
+    ),
     chapters,
   };
 }
 
 function normalizeSearch(raw: unknown): SearchResult {
   const r = ((raw || {}) as Raw) || {};
-  const chapter = rawStr(pick(r, "chapterTitle", "chapter_title", "chapter") ?? "");
+  const chapter = rawStr(
+    pick(r, "chapterTitle", "chapter_title", "chapter") ?? "",
+  );
   return {
     id: rawStr(pick(r, "id")),
     no: rawNum(pick(r, "no"), 0),
@@ -269,9 +298,12 @@ export const api = {
     if (params.mode) q.set("mode", params.mode);
     if (params.limit) q.set("limit", String(params.limit));
     if (params.cursor) q.set("cursor", params.cursor);
-    if (params.excludeIds && params.excludeIds.length) q.set("excludeIds", params.excludeIds.join(","));
+    if (params.excludeIds && params.excludeIds.length)
+      q.set("excludeIds", params.excludeIds.join(","));
     const suffix = q.toString() ? `?${q.toString()}` : "";
-    const body = await request<{ items: Question[] } | Question[]>(`/questions${suffix}`);
+    const body = await request<{ items: Question[] } | Question[]>(
+      `/questions${suffix}`,
+    );
     return Array.isArray(body) ? body : body.items;
   },
   getQuestionByNo(no: number): Promise<Question> {
@@ -287,15 +319,22 @@ export const api = {
   getQuestionDetailById(id: string): Promise<Question> {
     return request<Question>(`/questions/${id}/detail`);
   },
-  submitAttempt(questionId: string, picked: number[], version?: number): Promise<AttemptResult> {
+  submitAttempt(
+    questionId: string,
+    picked: number[],
+    version?: number,
+  ): Promise<AttemptResult> {
     return request<AttemptResult>("/attempts", {
       method: "POST",
       body: JSON.stringify({ questionId, picked, version }),
     });
   },
   getMistakes(ids?: string[]): Promise<Mistake[]> {
-    const suffix = ids && ids.length ? `?ids=${encodeURIComponent(ids.join(","))}` : "";
-    return unwrapList<unknown>(`/mistakes${suffix}`).then((rows) => rows.map(normalizeMistake));
+    const suffix =
+      ids && ids.length ? `?ids=${encodeURIComponent(ids.join(","))}` : "";
+    return unwrapList<unknown>(`/mistakes${suffix}`).then((rows) =>
+      rows.map(normalizeMistake),
+    );
   },
   setMastered(qid: string, mastered: boolean): Promise<void> {
     return request<void>(`/mistakes/${qid}`, {
@@ -304,7 +343,9 @@ export const api = {
     });
   },
   getFavorites(): Promise<Favorite[]> {
-    return unwrapList<unknown>("/favorites").then((rows) => rows.map(normalizeFavorite));
+    return unwrapList<unknown>("/favorites").then((rows) =>
+      rows.map(normalizeFavorite),
+    );
   },
   addFavorite(questionId: string): Promise<void> {
     return request<void>("/favorites", {
@@ -322,18 +363,22 @@ export const api = {
     });
   },
   getMyFeedbacks(): Promise<Feedback[]> {
-    return unwrapList<unknown>("/feedbacks").then((rows) => rows.map(normalizeFeedback));
+    return unwrapList<unknown>("/feedbacks").then((rows) =>
+      rows.map(normalizeFeedback),
+    );
   },
   getStats(): Promise<Stats> {
     return request<unknown>("/me/stats").then((body) => normalizeStats(body));
   },
   search(q: string): Promise<SearchResult[]> {
-    return unwrapList<unknown>(`/search?q=${encodeURIComponent(q)}`).then((rows) =>
-      rows.map(normalizeSearch),
+    return unwrapList<unknown>(`/search?q=${encodeURIComponent(q)}`).then(
+      (rows) => rows.map(normalizeSearch),
     );
   },
   getProgress(chapterId: string): Promise<Progress> {
-    return request<Progress>(`/progress?chapterId=${encodeURIComponent(chapterId)}`);
+    return request<Progress>(
+      `/progress?chapterId=${encodeURIComponent(chapterId)}`,
+    );
   },
   login(username: string, password: string): Promise<{ token: string }> {
     return request<{ token: string }>("/auth/login", {

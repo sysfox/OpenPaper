@@ -1,29 +1,49 @@
 <template>
   <section class="space-y-4">
-    <RouterLink to="/" class="text-base underline underline-offset-4">‹ 返回首页</RouterLink>
+    <RouterLink to="/" class="text-base underline underline-offset-4"
+      >‹ 返回首页</RouterLink
+    >
     <div>
-      <p class="text-sm font-bold text-reactor-700 tracking-widest">搜题干找题号</p>
+      <p class="text-sm font-bold text-reactor-700 tracking-widest">
+        搜题干找题号
+      </p>
       <h1 class="font-song text-3xl font-bold mt-1">搜索</h1>
     </div>
-    <form @submit.prevent="run" class="flex gap-2">
+    <form class="flex gap-2" @submit.prevent="run">
       <input
         v-model="q"
         placeholder="输入关键词，如 铀-235"
         class="flex-1 min-w-0 border-2 border-ink rounded-xl px-4 py-3 text-lg bg-white"
       />
-      <button type="submit" :disabled="busy" class="big-btn bg-ink text-paper rounded-xl px-6 disabled:opacity-50">
+      <button
+        type="submit"
+        :disabled="busy"
+        class="big-btn bg-ink text-paper rounded-xl px-6 disabled:opacity-50"
+      >
         {{ busy ? "搜…" : "搜" }}
       </button>
     </form>
-    <div v-if="error" class="bg-alarm-100 text-alarm-700 rounded-xl p-4 text-base">{{ error }}</div>
-    <div v-if="done && !results.length && !error" class="bg-white rounded-2xl border-2 border-ink p-6 text-lg text-center">没搜到，换个词试试。</div>
+    <div
+      v-if="error"
+      class="bg-alarm-100 text-alarm-700 rounded-xl p-4 text-base"
+    >
+      {{ error }}
+    </div>
+    <div
+      v-if="done && !results.length && !error"
+      class="bg-white rounded-2xl border-2 border-ink p-6 text-lg text-center"
+    >
+      没搜到，换个词试试。
+    </div>
     <RouterLink
       v-for="r in results"
       :key="r.id"
       :to="`/q/${r.no}`"
       class="block bg-white rounded-2xl border-2 border-ink p-4 space-y-1"
     >
-      <p class="text-sm font-bold text-ink/50">第 {{ r.no }} 题{{ r.chapterTitle ? ` · ${r.chapterTitle}` : "" }}</p>
+      <p class="text-sm font-bold text-ink/50">
+        第 {{ r.no }} 题{{ r.chapterTitle ? ` · ${r.chapterTitle}` : "" }}
+      </p>
       <h2 class="text-lg font-bold leading-relaxed">{{ r.stem }}</h2>
     </RouterLink>
   </section>

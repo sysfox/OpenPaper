@@ -5,45 +5,76 @@
       <h1 class="font-song text-3xl font-bold mt-1">错题本</h1>
     </div>
 
-    <div v-if="!logged" class="bg-white border-2 border-ink rounded-2xl p-6 text-center space-y-4">
+    <div
+      v-if="!logged"
+      class="bg-white border-2 border-ink rounded-2xl p-6 text-center space-y-4"
+    >
       <h2 class="text-2xl font-bold">登录后看错题</h2>
       <p class="text-lg text-ink/70">错题只存在你的账号里。</p>
-      <RouterLink to="/login" class="big-btn block bg-reactor-500 text-ink rounded-xl px-4 py-3">去登录</RouterLink>
+      <RouterLink
+        to="/login"
+        class="big-btn block bg-reactor-500 text-ink rounded-xl px-4 py-3"
+        >去登录</RouterLink
+      >
     </div>
 
     <div v-else class="space-y-4">
-      <div v-if="loading" class="bg-white rounded-2xl border-2 border-ink p-6 text-lg">错题加载中…</div>
-      <div v-else-if="error" class="bg-alarm-100 text-alarm-700 rounded-xl p-4 text-base">{{ error }}</div>
+      <div
+        v-if="loading"
+        class="bg-white rounded-2xl border-2 border-ink p-6 text-lg"
+      >
+        错题加载中…
+      </div>
+      <div
+        v-else-if="error"
+        class="bg-alarm-100 text-alarm-700 rounded-xl p-4 text-base"
+      >
+        {{ error }}
+      </div>
       <template v-else>
-        <p class="text-base text-ink/60">未掌握 {{ openCount }} 道 · 已掌握 {{ doneCount }} 道</p>
-        <div v-if="!items.length" class="bg-white rounded-2xl border-2 border-ink p-6 text-lg text-center">暂时没错题，继续保持。</div>
+        <p class="text-base text-ink/60">
+          未掌握 {{ openCount }} 道 · 已掌握 {{ doneCount }} 道
+        </p>
+        <div
+          v-if="!items.length"
+          class="bg-white rounded-2xl border-2 border-ink p-6 text-lg text-center"
+        >
+          暂时没错题，继续保持。
+        </div>
         <article
           v-for="m in items"
           :key="m.questionId"
           class="bg-white rounded-2xl border-2 border-ink p-4 space-y-3"
         >
           <p class="text-sm font-bold text-ink/50">
-            第 {{ m.question.no }} 题 · 错 {{ m.wrongCount }} 次 · {{ m.mastered ? "已掌握" : "未掌握" }}
+            第 {{ m.question.no }} 题 · 错 {{ m.wrongCount }} 次 ·
+            {{ m.mastered ? "已掌握" : "未掌握" }}
           </p>
-          <h2 class="text-lg font-bold leading-relaxed">{{ m.question.stem }}</h2>
+          <h2 class="text-lg font-bold leading-relaxed">
+            {{ m.question.stem }}
+          </h2>
           <div class="flex gap-2">
             <RouterLink
               v-if="m.question.no > 0"
               :to="`/q/${m.question.no}`"
               class="big-btn flex-1 text-center border-2 border-ink rounded-xl py-2 text-base"
-            >看解析</RouterLink>
+              >看解析</RouterLink
+            >
             <button
-              @click="toggle(m)"
               :disabled="busyId === m.questionId"
               class="big-btn flex-1 bg-ink text-paper rounded-xl disabled:opacity-50"
-            >{{ m.mastered ? "取消掌握" : "标为掌握" }}</button>
+              @click="toggle(m)"
+            >
+              {{ m.mastered ? "取消掌握" : "标为掌握" }}
+            </button>
           </div>
         </article>
         <RouterLink
           v-if="redoLink"
           :to="redoLink"
           class="big-btn block text-center bg-reactor-500 text-ink rounded-xl px-4 py-3"
-        >去重刷 {{ openCount }} 道错题</RouterLink>
+          >去重刷 {{ openCount }} 道错题</RouterLink
+        >
       </template>
     </div>
   </section>
