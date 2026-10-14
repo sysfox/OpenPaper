@@ -72,10 +72,7 @@ export class FavoritesController {
   }
 
   @Delete(":qid")
-  async remove(
-    @CurrentUser() user: { id: string },
-    @Param("qid") qid: string,
-  ) {
+  async remove(@CurrentUser() user: { id: string }, @Param("qid") qid: string) {
     if (!UUID_RE.test(qid)) {
       throw new BadRequestException("题目参数不对");
     }

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+pnpm-lock.yaml
+**/*.md
+pnpm-workspace.yaml
+renovate.json
+apps/web/public/manifest.webmanifest

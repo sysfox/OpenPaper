@@ -14,9 +14,6 @@ import { ListQuestionsQuery } from "./dto";
 const PUBLIC_FIELDS =
   "id, chapter_id AS chapterId, no, type, stem, options, version, status";
 
-const FULL_FIELDS =
-  "id, chapter_id AS chapterId, no, type, stem, options, answer, answer AS correctAnswer, analysis, version, status";
-
 const publicSelect = {
   id: true,
   chapterId: true,
@@ -54,9 +51,11 @@ function parseExcludeIds(raw?: string) {
     .filter((item) => UUID_RE.test(item));
 }
 
-function toFull(row: {
-  answer: unknown;
-} & Record<string, unknown>) {
+function toFull(
+  row: {
+    answer: unknown;
+  } & Record<string, unknown>,
+) {
   return { ...row, correctAnswer: row.answer };
 }
 

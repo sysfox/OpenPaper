@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "import:seed": "tsx seed/import.ts",
     "reindex": "tsx seed/reindex.ts",
     "sync:retry": "tsx seed/sync-retry.ts"

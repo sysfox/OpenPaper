@@ -33,22 +33,19 @@ export class SearchController {
       await tx.$executeRaw`SET LOCAL statement_timeout = 5000`;
       return tx.$queryRaw<Record<string, unknown>[]>(
         Prisma.sql`
-          SELECT ${Prisma.raw(PUBLIC_FIELDS)}, c.title AS "chapterTitle",
-                 GREATEST(similarity(q.stem, ${q}), similarity(q.options::text, ${q})) AS rank
-           FROM questions q LEFT JOIN chapters c ON c.id = q.chapter_id
-           WHERE q.status = 'published'
-             AND (q.stem ILIKE '%' || ${q} || '%'
-               OR q.options::text ILIKE '%' || ${q} || '%'
-               OR c.title ILIKE '%' || ${q} || '%'
-               OR q.stem % ${q} OR q.options::text % ${q})
-           ORDER BY rank DESC, q.no ASC
-           LIMIT ${limit}
-        `,
+          SELECT ${Prisma.raw(PUBLIC_FIELDS)}, c.title AS "chapterTitle"
+            FROM questions q LEFT JOIN chapters c ON c.id = q.chapter_id
+            WHERE q.status = 'published'
+              AND (q.stem ILIKE '%' || ${q} || '%'
+                OR q.options::text ILIKE '%' || ${q} || '%'
+                OR c.title ILIKE '%' || ${q} || '%'
+                OR q.stem % ${q} OR q.options::text % ${q})
+            ORDER BY GREATEST(similarity(q.stem, ${q}), similarity(q.options::text, ${q})) DESC, q.no ASC
+            LIMIT ${limit}
+         `,
       );
     });
-    return {
-      items: rows.map(({ rank, ...rest }) => rest),
-    };
+    return { items: rows };
   }
 
   private async fromAlgolia(q: string, limit: number) {

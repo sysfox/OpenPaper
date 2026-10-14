@@ -11,10 +11,7 @@ function key(userId: string, chapterId: string) {
   return `${userId}:${chapterId}`;
 }
 
-export function getMastery(
-  userId: string,
-  chapterId: string,
-): number | null {
+export function getMastery(userId: string, chapterId: string): number | null {
   const entry = cache.get(key(userId, chapterId));
   if (!entry) {
     return null;
@@ -26,11 +23,7 @@ export function getMastery(
   return entry.value;
 }
 
-export function setMastery(
-  userId: string,
-  chapterId: string,
-  value: number,
-) {
+export function setMastery(userId: string, chapterId: string, value: number) {
   cache.set(key(userId, chapterId), { value, ts: Date.now() });
 }
 

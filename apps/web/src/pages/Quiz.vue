@@ -1,34 +1,69 @@
 <template>
   <section class="space-y-4">
-    <div v-if="!logged" class="bg-white border-2 border-ink rounded-2xl p-6 text-center space-y-4">
+    <div
+      v-if="!logged"
+      class="bg-white border-2 border-ink rounded-2xl p-6 text-center space-y-4"
+    >
       <h1 class="text-2xl font-bold">刷题要先登录</h1>
       <p class="text-lg text-ink/70">游客只能看题，判分和进度要登录后才有。</p>
-      <RouterLink to="/login" class="big-btn block bg-reactor-500 text-ink rounded-xl px-4 py-3">去登录</RouterLink>
-      <RouterLink :to="firstReadonly" class="big-btn block border-2 border-ink rounded-xl px-4 py-3">先只看题</RouterLink>
+      <RouterLink
+        to="/login"
+        class="big-btn block bg-reactor-500 text-ink rounded-xl px-4 py-3"
+        >去登录</RouterLink
+      >
+      <RouterLink
+        :to="firstReadonly"
+        class="big-btn block border-2 border-ink rounded-xl px-4 py-3"
+        >先只看题</RouterLink
+      >
     </div>
 
     <div v-else class="space-y-4">
       <div class="flex items-center justify-between">
         <p class="text-base text-ink/60">第 {{ index + 1 }} / {{ total }} 题</p>
-        <span v-if="current && current.type === 'multi'" class="text-sm font-bold bg-ink text-paper rounded-full px-3 py-1">多选题</span>
+        <span
+          v-if="current && current.type === 'multi'"
+          class="text-sm font-bold bg-ink text-paper rounded-full px-3 py-1"
+          >多选题</span
+        >
       </div>
 
-      <div v-if="loading" class="bg-white rounded-2xl border-2 border-ink p-6 text-lg">题目加载中…</div>
-      <div v-else-if="!current" class="bg-white rounded-2xl border-2 border-ink p-6 text-lg">暂无题目。</div>
+      <div
+        v-if="loading"
+        class="bg-white rounded-2xl border-2 border-ink p-6 text-lg"
+      >
+        题目加载中…
+      </div>
+      <div
+        v-else-if="!current"
+        class="bg-white rounded-2xl border-2 border-ink p-6 text-lg"
+      >
+        暂无题目。
+      </div>
 
-      <article v-else class="bg-white rounded-2xl border-2 border-ink p-5 space-y-4">
-        <p class="text-sm font-bold text-ink/50">第 {{ current.no }} 题 · {{ typeName(current.type) }}</p>
+      <article
+        v-else
+        class="bg-white rounded-2xl border-2 border-ink p-5 space-y-4"
+      >
+        <p class="text-sm font-bold text-ink/50">
+          第 {{ current.no }} 题 · {{ typeName(current.type) }}
+        </p>
         <h1 class="text-xl font-bold leading-relaxed">{{ current.stem }}</h1>
-        <p v-if="current.type === 'multi'" class="text-sm font-bold text-reactor-700">少选得半分，错选不得分</p>
+        <p
+          v-if="current.type === 'multi'"
+          class="text-sm font-bold text-reactor-700"
+        >
+          少选得半分，错选不得分
+        </p>
 
         <div class="space-y-3">
           <button
             v-for="(opt, i) in current.options"
             :key="i"
             :disabled="judged"
-            @click="toggle(i)"
             :class="optClass(i)"
             class="opt-btn w-full text-left rounded-xl border-2 px-4 py-3 font-bold"
+            @click="toggle(i)"
           >
             {{ letter(i) }}. {{ opt }}
           </button>
@@ -36,26 +71,61 @@
 
         <button
           v-if="current.type === 'multi' && !judged"
-          @click="confirm"
           :disabled="!picked.length"
           class="big-btn w-full rounded-xl px-4 py-3 font-bold"
-          :class="picked.length ? 'bg-reactor-500 text-ink' : 'bg-ink/10 text-ink/40'"
-        >确定</button>
+          :class="
+            picked.length ? 'bg-reactor-500 text-ink' : 'bg-ink/10 text-ink/40'
+          "
+          @click="confirm"
+        >
+          确定
+        </button>
 
-        <div v-if="judged && result" class="rounded-xl p-4 text-lg font-bold" :class="result.score === 100 ? 'bg-moss-100 text-moss-700' : result.score === 50 ? 'bg-reactor-100 text-reactor-700' : 'bg-alarm-100 text-alarm-700'">
-          {{ result.score === 100 ? "答对了" : result.score === 50 ? "半对，得 50 分" : "答错了，得 0 分" }}
+        <div
+          v-if="judged && result"
+          class="rounded-xl p-4 text-lg font-bold"
+          :class="
+            result.score === 100
+              ? 'bg-moss-100 text-moss-700'
+              : result.score === 50
+                ? 'bg-reactor-100 text-reactor-700'
+                : 'bg-alarm-100 text-alarm-700'
+          "
+        >
+          {{
+            result.score === 100
+              ? "答对了"
+              : result.score === 50
+                ? "半对，得 50 分"
+                : "答错了，得 0 分"
+          }}
         </div>
 
-        <details v-if="judged && result" open class="rounded-xl bg-paper border border-ink/10 p-4">
+        <details
+          v-if="judged && result"
+          open
+          class="rounded-xl bg-paper border border-ink/10 p-4"
+        >
           <summary class="text-lg font-bold cursor-pointer">解析</summary>
-          <p class="mt-2 text-base leading-relaxed">{{ result.analysis || "暂无解析，欢迎纠错补充。" }}</p>
+          <p class="mt-2 text-base leading-relaxed">
+            {{ result.analysis || "暂无解析，欢迎纠错补充。" }}
+          </p>
         </details>
 
         <div v-if="judged" class="flex gap-2">
-          <button @click="toggleFav" :disabled="favBusy" class="big-btn flex-1 border-2 border-ink rounded-xl disabled:opacity-50">
+          <button
+            :disabled="favBusy"
+            class="big-btn flex-1 border-2 border-ink rounded-xl disabled:opacity-50"
+            @click="toggleFav"
+          >
             {{ favBusy ? "收藏中…" : isFav ? "★ 已收藏" : "☆ 收藏" }}
           </button>
-          <button @click="next" class="big-btn flex-1 bg-ink text-paper rounded-xl px-4 py-3">下一题</button>
+          <button
+            class="big-btn flex-1 bg-ink text-paper rounded-xl px-4 py-3"
+            @click="next"
+          >
+            下一题
+          </button>
         </div>
       </article>
     </div>
@@ -65,7 +135,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { api, normalizeQuestion, isLoggedIn, type AttemptResult, type Question } from "../api";
+import {
+  api,
+  normalizeQuestion,
+  isLoggedIn,
+  type AttemptResult,
+  type Question,
+} from "../api";
 import { mockQuestions } from "../mock";
 
 const route = useRoute();
@@ -85,7 +161,9 @@ const favBusy = ref(false);
 const current = computed(() => list.value[index.value]);
 const total = computed(() => list.value.length);
 const firstReadonly = computed(() => `/q/${list.value[0]?.no || 1}`);
-const isFav = computed(() => (current.value ? favSet.value.has(current.value.id) : false));
+const isFav = computed(() =>
+  current.value ? favSet.value.has(current.value.id) : false,
+);
 
 function letter(i: number): string {
   return String.fromCharCode(65 + i);
@@ -100,17 +178,47 @@ function localGrade(q: Question, pick: number[]): AttemptResult {
   const got = [...pick].sort((a, b) => a - b);
   if (q.type !== "multi") {
     const ok = got.length === 1 && ans.length === 1 && got[0] === ans[0];
-    return { score: ok ? 100 : 0, isFull: ok, correctAnswer: ans, analysis: q.analysis || "" };
+    return {
+      score: ok ? 100 : 0,
+      isFull: ok,
+      correctAnswer: ans,
+      analysis: q.analysis || "",
+    };
   }
-  if (!got.length) return { score: 0, isFull: false, correctAnswer: ans, analysis: q.analysis || "" };
-  if (got.some((v) => !ans.includes(v))) return { score: 0, isFull: false, correctAnswer: ans, analysis: q.analysis || "" };
-  if (got.length === ans.length) return { score: 100, isFull: true, correctAnswer: ans, analysis: q.analysis || "" };
-  return { score: 50, isFull: false, correctAnswer: ans, analysis: q.analysis || "" };
+  if (!got.length)
+    return {
+      score: 0,
+      isFull: false,
+      correctAnswer: ans,
+      analysis: q.analysis || "",
+    };
+  if (got.some((v) => !ans.includes(v)))
+    return {
+      score: 0,
+      isFull: false,
+      correctAnswer: ans,
+      analysis: q.analysis || "",
+    };
+  if (got.length === ans.length)
+    return {
+      score: 100,
+      isFull: true,
+      correctAnswer: ans,
+      analysis: q.analysis || "",
+    };
+  return {
+    score: 50,
+    isFull: false,
+    correctAnswer: ans,
+    analysis: q.analysis || "",
+  };
 }
 
 function optClass(i: number): string {
   if (!judged.value || !result.value) {
-    return picked.value.includes(i) ? "border-reactor-500 bg-reactor-100" : "border-ink/20 bg-white";
+    return picked.value.includes(i)
+      ? "border-reactor-500 bg-reactor-100"
+      : "border-ink/20 bg-white";
   }
   // 后端公开字段已剔除答案：correctAnswer 缺失时按空数组处理，不崩
   const good = (result.value.correctAnswer || []).includes(i);
@@ -128,7 +236,10 @@ function reset(): void {
 
 function parseIds(raw: unknown): string[] {
   if (typeof raw !== "string") return [];
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 async function refreshFavs(): Promise<void> {
@@ -175,7 +286,9 @@ function toggle(i: number): void {
   const q = current.value;
   if (!q || judged.value) return;
   if (q.type === "multi") {
-    picked.value = picked.value.includes(i) ? picked.value.filter((v) => v !== i) : [...picked.value, i];
+    picked.value = picked.value.includes(i)
+      ? picked.value.filter((v) => v !== i)
+      : [...picked.value, i];
     return;
   }
   picked.value = [i];
@@ -206,7 +319,12 @@ async function next(): Promise<void> {
   }
   try {
     const chapterId = route.query.chapterId as string | undefined;
-    const more = await api.getQuestionList({ chapterId, mode: "random", limit: 20, excludeIds: doneIds.value });
+    const more = await api.getQuestionList({
+      chapterId,
+      mode: "random",
+      limit: 20,
+      excludeIds: doneIds.value,
+    });
     if (more.length) {
       list.value = [...list.value, ...more];
       index.value += 1;
@@ -240,7 +358,9 @@ async function load(): Promise<void> {
         // 登录优先取含答案解析的详情接口，公开接口无答案时本地判分降级、不崩
         const fetchOne = (id: string) =>
           isLoggedIn()
-            ? api.getQuestionDetailById(id).catch(() => api.getQuestionById(id).catch(() => null))
+            ? api
+                .getQuestionDetailById(id)
+                .catch(() => api.getQuestionById(id).catch(() => null))
             : api.getQuestionById(id).catch(() => null);
         const fetched = await Promise.all(missing.map((id) => fetchOne(id)));
         for (const q of fetched) {
@@ -252,7 +372,12 @@ async function load(): Promise<void> {
         .filter((q): q is Question => Boolean(q))
         .map((q) => normalizeQuestion(q));
     } else {
-      qs = await api.getQuestionList({ chapterId, mode, limit: 20, excludeIds: doneIds.value });
+      qs = await api.getQuestionList({
+        chapterId,
+        mode,
+        limit: 20,
+        excludeIds: doneIds.value,
+      });
     }
   } catch {
     if (ids.length) {
@@ -261,7 +386,9 @@ async function load(): Promise<void> {
         .filter((q): q is Question => Boolean(q));
       qs = local.length ? local : mockQuestions;
     } else {
-      qs = chapterId ? mockQuestions.filter((q) => q.chapterId === chapterId) : mockQuestions;
+      qs = chapterId
+        ? mockQuestions.filter((q) => q.chapterId === chapterId)
+        : mockQuestions;
       if (!qs.length) qs = mockQuestions;
     }
   }
@@ -281,6 +408,6 @@ watch(
     logged.value = isLoggedIn();
     void refreshFavs();
     void load();
-  }
+  },
 );
 </script>

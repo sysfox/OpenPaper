@@ -68,7 +68,7 @@ function convertFile(
       }
       continue;
     }
-    m = line.match(/^\*\*(\d+)\.\s*[【\[]([^】\]]+)[】\]]\s*(.*)\*\*$/);
+    m = line.match(/^\*\*(\d+)\.\s*[【[]([^】\]]+)[】\]]\s*(.*)\*\*$/);
     if (m) {
       flush();
       const typeRaw = m[2];

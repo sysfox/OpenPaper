@@ -22,11 +22,7 @@ export class AttemptsService {
     const answer = Array.isArray(question.answer)
       ? (question.answer as Array<string | number>)
       : [];
-    const result = grade(
-      question.type as QuestionType,
-      answer,
-      picked ?? [],
-    );
+    const result = grade(question.type as QuestionType, answer, picked ?? []);
     const pickedArr = picked ?? [];
     if (result.score < 100) {
       await this.prisma.$transaction([

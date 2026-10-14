@@ -10,18 +10,18 @@ export default {
           100: "#FEEFC7",
           500: "#F5A301",
           600: "#D98700",
-          700: "#A86400"
+          700: "#A86400",
         },
         moss: {
           100: "#DDF3DF",
           600: "#1E7E34",
-          700: "#166429"
+          700: "#166429",
         },
         alarm: {
           100: "#FDE2E2",
           600: "#C81E1E",
-          700: "#A31616"
-        }
+          700: "#A31616",
+        },
       },
       fontFamily: {
         sans: [
@@ -29,11 +29,11 @@ export default {
           "system-ui",
           '"PingFang SC"',
           '"Microsoft YaHei"',
-          "sans-serif"
+          "sans-serif",
         ],
-        song: ['"Songti SC"', '"Noto Serif SC"', "serif"]
-      }
-    }
+        song: ['"Songti SC"', '"Noto Serif SC"', "serif"],
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };

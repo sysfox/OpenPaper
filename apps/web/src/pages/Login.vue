@@ -1,18 +1,46 @@
 <template>
-  <section class="max-w-md mx-auto bg-white border-2 border-ink rounded-2xl p-6 space-y-4">
+  <section
+    class="max-w-md mx-auto bg-white border-2 border-ink rounded-2xl p-6 space-y-4"
+  >
     <h1 class="font-song text-3xl font-bold">登录</h1>
     <p class="text-base text-ink/60">登录后刷题、判分、记进度。</p>
-    <div v-if="error" class="bg-alarm-100 text-alarm-700 rounded-xl p-3 text-base">{{ error }}</div>
+    <div
+      v-if="error"
+      class="bg-alarm-100 text-alarm-700 rounded-xl p-3 text-base"
+    >
+      {{ error }}
+    </div>
     <label class="block space-y-1">
       <span class="text-base font-bold">用户名</span>
-      <input v-model="username" class="w-full border-2 border-ink rounded-xl px-4 py-3 text-lg" placeholder="输入用户名" />
+      <input
+        v-model="username"
+        class="w-full border-2 border-ink rounded-xl px-4 py-3 text-lg"
+        placeholder="输入用户名"
+      />
     </label>
     <label class="block space-y-1">
       <span class="text-base font-bold">密码</span>
-      <input v-model="password" type="password" class="w-full border-2 border-ink rounded-xl px-4 py-3 text-lg" placeholder="输入密码" />
+      <input
+        v-model="password"
+        type="password"
+        class="w-full border-2 border-ink rounded-xl px-4 py-3 text-lg"
+        placeholder="输入密码"
+      />
     </label>
-    <button @click="submit" :disabled="busy" class="big-btn w-full bg-ink text-paper rounded-xl disabled:opacity-50">{{ busy ? "登录中…" : "登录" }}</button>
-    <p class="text-base text-center">没账号？<RouterLink to="/register" class="font-bold underline underline-offset-4">去注册</RouterLink></p>
+    <button
+      :disabled="busy"
+      class="big-btn w-full bg-ink text-paper rounded-xl disabled:opacity-50"
+      @click="submit"
+    >
+      {{ busy ? "登录中…" : "登录" }}
+    </button>
+    <p class="text-base text-center">
+      没账号？<RouterLink
+        to="/register"
+        class="font-bold underline underline-offset-4"
+        >去注册</RouterLink
+      >
+    </p>
   </section>
 </template>
 

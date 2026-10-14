@@ -12,10 +12,7 @@ export class AttemptsController {
   @Post()
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @UseGuards(JwtAuthGuard)
-  submit(
-    @CurrentUser() user: { id: string },
-    @Body() dto: CreateAttemptDto,
-  ) {
+  submit(@CurrentUser() user: { id: string }, @Body() dto: CreateAttemptDto) {
     return this.attempts.submit(
       user.id,
       dto.questionId,

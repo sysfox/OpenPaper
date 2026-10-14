@@ -8,7 +8,9 @@ import {
 
 async function main(): Promise<void> {
   if (!algoliaEnabled()) {
-    console.log("未配置 ALGOLIA_APP_ID / ALGOLIA_ADMIN_KEY（兼容 ALGOLIA_API_KEY），跳过重建索引");
+    console.log(
+      "未配置 ALGOLIA_APP_ID / ALGOLIA_ADMIN_KEY（兼容 ALGOLIA_API_KEY），跳过重建索引",
+    );
     return;
   }
   if (!process.env.DATABASE_URL) {
