@@ -6,8 +6,12 @@ export class RegisterDto {
   @Matches(/^[A-Za-z0-9_\u4e00-\u9fa5]+$/, { message: "用户名格式不对" })
   username!: string;
 
-  @IsString({ message: "密码至少6位" })
-  @Length(6, 64, { message: "密码至少6位" })
+  // 密码至少8位，且必须同时包含字母和数字
+  @IsString({ message: "密码至少8位，需包含字母和数字" })
+  @Length(8, 64, { message: "密码至少8位，需包含字母和数字" })
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: "密码至少8位，需包含字母和数字",
+  })
   password!: string;
 }
 

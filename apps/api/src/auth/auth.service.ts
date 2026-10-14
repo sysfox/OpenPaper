@@ -22,15 +22,21 @@ export class AuthService {
       [username],
     );
     if (exists.rowCount && exists.rowCount > 0) {
-      return { ok: false as const, reason: "用户名已存在" };
+      // 注册失败统一话术，不泄露用户名是否已存在，防止用户枚举
+      return { ok: false as const, reason: "注册失败" };
     }
     const passwordHash = await argon2.hash(password);
-    const created = await this.db.query<UserRow>(
-      "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username",
-      [username, passwordHash],
-    );
-    const user = created.rows[0];
-    return { ok: true as const, user };
+    try {
+      const created = await this.db.query<UserRow>(
+        "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username",
+        [username, passwordHash],
+      );
+      const user = created.rows[0];
+      return { ok: true as const, user };
+    } catch {
+      // 并发注册触达唯一约束时同样返回统一话术，不泄露用户名是否已存在
+      return { ok: false as const, reason: "注册失败" };
+    }
   }
 
   async validate(username: string, password: string) {
