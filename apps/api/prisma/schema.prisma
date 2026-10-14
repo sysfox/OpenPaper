@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username     String     @unique
+  passwordHash String     @map("password_hash")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  attempts     Attempt[]
+  mistakes     Mistake[]
+  favorites    Favorite[]
+  feedbacks    Feedback[]
+
+  @@map("users")
+}
+
+model Course {
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title    String
+  slug     String    @unique
+  cover    String    @default("")
+  status   String    @default("published")
+  chapters Chapter[]
+
+  @@map("courses")
+}
+
+model Chapter {
+  id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId String     @map("course_id") @db.Uuid
+  course   Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  code     String
+  title    String
+  sort     Int        @default(0)
+  questions Question[]
+
+  @@index([courseId, sort], map: "idx_chapters_course_sort")
+  @@map("chapters")
+}
+
+model Question {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapterId String     @map("chapter_id") @db.Uuid
+  chapter   Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  no        Int        @unique
+  type      String
+  stem      String
+  options   Json       @default("[]") @db.JsonB
+  answer    Json       @default("[]") @db.JsonB
+  analysis  String     @default("")
+  version   Int        @default(1)
+  status    String     @default("published")
+  attempts  Attempt[]
+  mistakes  Mistake[]
+  favorites Favorite[]
+  feedbacks Feedback[]
+  syncQueue SyncQueue[]
+
+  @@index([chapterId, no], map: "idx_questions_chapter_no")
+  @@map("questions")
+}
+
+model Attempt {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String   @map("question_id") @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  version    Int      @default(1)
+  picked     Json     @default("[]") @db.JsonB
+  score      Int
+  isFull     Boolean  @default(false) @map("is_full")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId, questionId, createdAt(sort: Desc)], map: "idx_attempts_user_question_created")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_attempts_user_created")
+  @@map("attempts")
+}
+
+model Mistake {
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String   @map("question_id") @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  wrongCount Int      @default(1) @map("wrong_count")
+  mastered   Boolean  @default(false)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([userId, questionId])
+  @@index([userId], map: "idx_mistakes_user")
+  @@map("mistakes")
+}
+
+model Favorite {
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String   @map("question_id") @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([userId, questionId])
+  @@index([userId], map: "idx_favorites_user")
+  @@map("favorites")
+}
+
+model Feedback {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String   @map("question_id") @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  content    String
+  status     String   @default("pending")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("feedbacks")
+}
+
+model SyncQueue {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String?   @map("question_id") @db.Uuid
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  op         String
+  retries    Int       @default(0)
+  status     String    @default("pending")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("sync_queue")
+}
