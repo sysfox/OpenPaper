@@ -76,7 +76,7 @@ export class QuestionsController {
         const items = await this.prisma.$queryRaw<
           Record<string, unknown>[]
         >`SELECT ${Prisma.raw(PUBLIC_FIELDS)} FROM questions
-           WHERE chapter_id = ${query.chapterId} AND status = 'published'
+           WHERE chapter_id = ${query.chapterId}::uuid AND status = 'published'
              AND (${excluded}::uuid[] IS NULL OR id <> ALL (${excluded}))
            ORDER BY random() LIMIT ${limit}`;
         return { items, nextCursor: null };
