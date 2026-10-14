@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
+import { getMastery, setMastery } from "../common/mastery-cache";
 import { DbService } from "../db/db.service";
 
 @Controller("progress")
@@ -35,7 +36,6 @@ export class ProgressController {
       [user.id, ids],
     );
     const latest = new Map(attempts.rows.map((row) => [row.question_id, row]));
-    let points = 0;
     let lastNo: number | null = null;
     let lastTime = "";
     for (const question of questions.rows) {
@@ -43,23 +43,34 @@ export class ProgressController {
       if (!attempt) {
         continue;
       }
-      if (attempt.score >= 100) {
-        points += 1;
-      } else if (attempt.score >= 50) {
-        points += 0.5;
-      }
       if (attempt.created_at >= lastTime) {
         lastTime = attempt.created_at;
         lastNo = question.no;
       }
     }
+    const total = questions.rowCount ?? questions.rows.length;
+    let mastery = getMastery(user.id, chapterId);
+    if (mastery === null) {
+      let points = 0;
+      for (const question of questions.rows) {
+        const attempt = latest.get(question.id);
+        if (!attempt) {
+          continue;
+        }
+        if (attempt.score >= 100) {
+          points += 1;
+        } else if (attempt.score >= 50) {
+          points += 0.5;
+        }
+      }
+      mastery = total ? Math.round((points / total) * 100) / 100 : 0;
+      setMastery(user.id, chapterId, mastery);
+    }
     return {
-      total: questions.rowCount,
+      total,
       done: latest.size,
       lastNo,
-      mastery: questions.rowCount
-        ? Math.round((points / questions.rowCount) * 100) / 100
-        : 0,
+      mastery,
     };
   }
 }
