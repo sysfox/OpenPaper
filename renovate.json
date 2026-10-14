@@ -2,5 +2,65 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "timezone": "Asia/Shanghai",
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "bump",
+  "labels": [
+    "dependencies"
+  ],
+  "semanticCommits": "enabled",
+  "packageRules": [
+    {
+      "description": "自动合并补丁更新",
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "次版本更新仅创建 PR",
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "主版本更新需要手动审核",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "major-update"
+      ]
+    },
+    {
+      "description": "开发依赖分组更新",
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "groupName": "开发依赖"
+    },
+    {
+      "description": "GitHub Actions 更新分组",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Docker 镜像更新分组",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "groupName": "Docker 镜像"
+    }
   ]
 }
+```
