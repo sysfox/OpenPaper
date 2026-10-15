@@ -6,6 +6,21 @@ import {
   type SearchRecord,
 } from "./search.js";
 
+type IndexedQuestion = {
+  id: string;
+  no: number;
+  type: string;
+  stem: string;
+  options: unknown;
+  chapter: {
+    code: string;
+    title: string;
+    course: {
+      slug: string;
+    };
+  };
+};
+
 async function main(): Promise<void> {
   if (!algoliaEnabled()) {
     console.log(
@@ -26,7 +41,7 @@ async function main(): Promise<void> {
       include: { chapter: { include: { course: true } } },
       orderBy: { no: "asc" },
     });
-    const records: SearchRecord[] = questions.map((row) => ({
+    const records: SearchRecord[] = questions.map((row: IndexedQuestion) => ({
       objectID: row.id,
       no: row.no,
       type: row.type,
